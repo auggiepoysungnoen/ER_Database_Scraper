@@ -1,0 +1,440 @@
+================================================================================
+PROJECT: Aim01 — Endometrial Receptivity Dataset Regeneration Pipeline
+LAB:     Hickey Lab, Duke University (PI: John Hickey)
+DATE:    2026-03-02
+VERSION: 2.0 (detailed specification)
+================================================================================
+
+OVERVIEW
+--------
+Develop a fully automated, reproducible pipeline that discovers, evaluates,
+downloads, and catalogues open-access genomics datasets relevant to endometrial
+receptivity and the human Window of Implantation (WOI). The pipeline must handle
+four data modalities: single-cell RNA-seq (scRNA-seq), bulk RNA-seq (bulkRNA-seq),
+Spatial Transcriptomics (ST), and Spatial Proteomics (SP). All outputs must meet
+academic integrity standards and be reproducible by an independent researcher.
+
+
+================================================================================
+1. DATABASES
+================================================================================
+
+Primary (programmatic API access required):
+  - GEO / NCBI (https://www.ncbi.nlm.nih.gov/geo/)
+      API: NCBI E-utilities (esearch, efetch, esummary)
+      Accession prefix: GSE (series), GSM (samples)
+  - ArrayExpress / BioStudies (EMBL-EBI)
+      API: BioStudies REST API (https://www.ebi.ac.uk/biostudies/api)
+      Accession prefix: E-MTAB-*, E-GEOD-*
+  - CELLxGENE Census (Chan Zuckerberg Initiative)
+      API: cellxgene-census Python package
+      Tissue filter: "uterus", "endometrium"
+  - Human Cell Atlas Data Portal
+      API: HCA DCP API (https://service.azul.data.humancellatlas.org/)
+      Organ filter: "uterus"
+  - Single Cell Portal (Broad Institute)
+      API: SCP REST API (https://singlecell.broadinstitute.org/single_cell/api)
+
+Secondary (manual curation + DOI scraping):
+  - Zenodo (https://zenodo.org) — keyword search via REST API
+  - figshare (https://figshare.com) — REST API
+  - ENCODE (https://www.encodeproject.org) — REST API, biosample_term: uterus
+  - Mendeley Data — REST API
+
+Controlled-access (flag only; do not attempt download without approval):
+  - dbGaP — flag accessions (phs*) for manual review
+  - European Genome-phenome Archive (EGA) — flag accessions (EGAD*) for review
+
+
+================================================================================
+2. KEY SEARCH TERMS
+================================================================================
+
+Tissue / Anatomy Terms (at least one must match):
+  "endometrium", "endometrial", "uterus", "uterine", "myometrium",
+  "decidua", "decidual", "trophoblast", "placenta" (exclude placenta-only studies)
+
+Biological Process Terms (at least one must match):
+  "endometrial receptivity", "uterine receptivity",
+  "window of implantation", "implantation window", "WOI",
+  "embryo implantation", "blastocyst implantation",
+  "decidualization", "luteal phase", "secretory phase",
+  "LH surge", "LH+", "natural killer uterine", "uNK",
+  "recurrent implantation failure", "RIF",
+  "endometriosis", "adenomyosis", "PCOS", "thin endometrium",
+  "hormonal replacement therapy", "HRT", "progesterone", "estrogen"
+
+Modality-specific Terms (used per search query branch):
+  scRNA-seq:          "single cell RNA-seq", "scRNA-seq", "10x Genomics",
+                      "single-cell transcriptomics", "SMART-seq2", "Drop-seq",
+                      "MARS-seq", "single nucleus RNA-seq", "snRNA-seq"
+  bulkRNA-seq:        "RNA-seq", "bulk RNA-seq", "transcriptome", "gene expression",
+                      "microarray" (include but downweight; see §6)
+  Spatial Transcriptomics: "spatial transcriptomics", "10x Visium", "Visium HD",
+                      "MERFISH", "seqFISH", "seqFISH+", "SLIDE-seq", "STARmap",
+                      "Xenium", "Stereo-seq"
+  Spatial Proteomics: "spatial proteomics", "CODEX", "CyCIF", "IMC",
+                      "imaging mass cytometry", "GeoMx", "MIBI", "multiplexed IF",
+                      "mIF", "t-CyCIF"
+
+Exclusion Terms (discard datasets matching these without tissue match):
+  "cancer", "carcinoma", "tumor", "sarcoma", "cervical", "ovarian cancer",
+  "in vitro fertilization only" (IVF cell-line studies with no primary tissue)
+
+
+================================================================================
+3. CORRESPONDING PAPER SUMMARY FORMAT
+================================================================================
+
+For every accepted dataset, generate a structured paper summary with the
+following sections. Store as one entry per dataset in paper_summaries.json
+and render as Markdown in paper_summaries.md.
+
+  Accession:       [GSE*, E-MTAB-*, etc.]
+  DOI:             [https://doi.org/...]
+  Title:           [Full paper title]
+  Authors:         [Last name et al., Year, Journal]
+  Journal_IF:      [Impact factor at time of publication, if retrievable]
+  Peer_Reviewed:   [Yes / No / Preprint]
+
+  --- Aim ---
+  One paragraph (3-5 sentences) describing the study's central hypothesis
+  and research objective in the context of endometrial biology.
+
+  --- Dataset ---
+  - Modality:      [scRNA-seq / bulkRNA-seq / Spatial Transcriptomics / Spatial Proteomics]
+  - Platform:      [10x Chromium v3.1 / Visium / CODEX / etc.]
+  - N_patients:    [integer]
+  - N_samples:     [integer]
+  - N_cells:       [integer or "N/A" for bulk]
+  - Cycle_phases:  [e.g., proliferative, early secretory, mid-secretory (WOI), late secretory]
+  - LH_timepoints: [e.g., LH+2, LH+5, LH+7, LH+9 — list all reported]
+  - Sub_compartments: [list all annotated cell types or tissue regions]
+  - Disease_groups: [healthy controls / endometriosis / RIF / PCOS / etc.]
+  - Raw_data_available: [Yes / No]
+  - Data_location: [GEO accession / URL]
+
+  --- Brief Methodology ---
+  2-4 sentences: tissue collection protocol, library preparation, sequencing
+  parameters (read depth, paired-end, reference genome), preprocessing tools
+  (Cell Ranger version, alignment reference), and any normalization steps reported.
+
+  --- Brief Findings ---
+  3-5 sentences: key transcriptomic or proteomic findings, marker genes
+  highlighted, biological conclusions relevant to endometrial receptivity,
+  and any clinical relevance stated by the authors.
+
+  --- Relevance to Hickey Lab Aim01 ---
+  1-2 sentences explicitly stating why this dataset is valuable for
+  Aim01 (e.g., WOI coverage, specific cell-type resolution, disease comparison).
+
+
+================================================================================
+4. CONFIDENCE SCORE METRICS
+================================================================================
+
+Each dataset is assigned a Confidence Score (CS) out of 100 points across
+five weighted dimensions. Scores are stored in confidence_scores.csv.
+
+--- 4.1 Data Quality Score (DQS) — max 25 pts ---
+  Raw count matrix publicly downloadable (not just normalized):  +10
+  QC metrics reported (% mitochondrial reads, doublet rate):      +5
+  Cell count ≥ 5,000 (scRNA-seq) or ≥ 10 samples (bulk):         +5
+  Sequencing depth ≥ 20,000 reads/cell (scRNA-seq) or
+    ≥ 30M reads/sample (bulk):                                    +5
+
+--- 4.2 Temporal Resolution Score (TRS) — max 25 pts ---
+  Each distinct LH-referenced timepoint covered:                  +2 (max 10)
+  WOI timepoints (LH+5 through LH+9) included:                  +10
+  Longitudinal design (same patient sampled at ≥2 timepoints):    +5
+
+--- 4.3 Sub-compartment Resolution Score (SRS) — max 20 pts ---
+  Each distinct annotated cell type or tissue compartment:        +1 (max 10)
+  Immune compartment (uNK, macrophages, T cells) included:        +5
+  Spatial resolution technology (Visium, MERFISH, CODEX, etc.):   +5
+
+--- 4.4 Metadata Completeness Score (MCS) — max 15 pts ---
+  Patient age and BMI reported:                                    +3
+  Hormonal status and cycle phase annotation:                      +5
+  Disease/clinical phenotype clearly labelled:                     +4
+  Parity and reproductive history:                                 +3
+
+--- 4.5 Dataset Accessibility Score (DAS) — max 15 pts ---
+  Fully publicly downloadable (no dbGaP/EGA approval required):   +10
+  Stable accession or DOI:                                         +3
+  Multiple file formats provided (e.g., h5ad + raw matrix):        +2
+
+--- Penalties (subtracted from total) ---
+  Only processed/normalized data available, no raw counts:         -10
+  Patient N < 3 (underpowered):                                    -8
+  No cycle phase or LH annotation whatsoever:                      -6
+  Preprint only (not peer-reviewed at time of scrape):             -3
+  Critical metadata missing (age, disease status, etc.):           -5
+  Dataset retracted or flagged for data integrity issues:          -25
+
+--- Modality Downweighting (multiply total score by factor) ---
+  scRNA-seq / snRNA-seq:                   × 1.00 (reference)
+  Spatial Transcriptomics:                 × 1.00 (equal weight)
+  Spatial Proteomics:                      × 0.95
+  bulkRNA-seq (≥ 20 samples):              × 0.80
+  bulkRNA-seq (< 20 samples):              × 0.65
+  Microarray:                              × 0.50
+  Cell lines or organoids only:            × 0.30 (deprioritize strongly)
+
+Final CS = (sum of dimensional scores − penalties) × modality_weight
+Clamped to range [0, 100].
+Datasets with CS < 30 are flagged as LOW_CONFIDENCE and excluded from
+primary analysis unless manually overridden by user.
+
+
+================================================================================
+5. DELIVERABLES
+================================================================================
+
+--- 5.1 Output Files (saved to /output/) ---
+
+  metadata_master.csv
+      Unified metadata table. One row per dataset.
+      Columns: accession, title, doi, modality, platform, n_patients,
+               n_cells, lh_timepoints, sub_compartments, disease_groups,
+               raw_available, confidence_score, confidence_tier,
+               download_url, file_size_gb, date_scraped
+
+  datasets_registry.json
+      Machine-readable JSON registry. Mirrors metadata_master.csv
+      with nested structure for LH timepoints and sub-compartments.
+      Consumed by the web interface and download manager.
+
+  paper_summaries.json
+      Array of paper summary objects (schema per §3).
+
+  paper_summaries.md
+      Human-readable Markdown rendering of all paper summaries.
+      Organized by modality, then sorted by confidence score descending.
+
+  confidence_scores.csv
+      Columns: accession, DQS, TRS, SRS, MCS, DAS, penalties,
+               modality_weight, final_CS, confidence_tier
+      Tiers: GOLD (CS ≥ 80), SILVER (60–79), BRONZE (40–59),
+             LOW_CONFIDENCE (< 40)
+
+  pipeline_report.html
+      Auto-generated standalone HTML report summarizing the run:
+      total datasets found, accepted, rejected, score distribution,
+      modality breakdown, timepoint coverage heatmap, run timestamp.
+
+--- 5.2 Download System (/script/downloader/) ---
+
+  download_manifest.sh
+      Bash script listing all GOLD + SILVER datasets with their
+      GEO/ArrayExpress/HCA download commands (wget / curl / ffq / GEOparse).
+      Grouped by modality. Includes MD5 checksum verification step.
+
+  download_manager.py
+      Python script that reads datasets_registry.json and executes
+      downloads with: parallel workers (configurable, default 4),
+      resume support (skip already-downloaded files),
+      retry logic (3 attempts with exponential backoff),
+      progress bar (tqdm), and logging to /output/download_log.txt.
+      Controlled-access datasets (dbGaP, EGA) are listed but skipped
+      with a clear printed warning.
+
+  file_organizer.py
+      After download, organizes raw files into:
+      /output/raw/{modality}/{accession}/
+          {accession}_counts.h5 or .h5ad or .mtx.gz
+          {accession}_metadata.csv
+          {accession}_README.txt
+
+
+================================================================================
+6. USER INTERFACE & STYLE
+================================================================================
+
+Framework:  Streamlit (Python)
+Theme:      Minimalistic academic — white background, Duke blue (#00539B)
+            accent, serif headings (Georgia), monospace for accessions.
+            No decorative graphics; data-forward layout.
+
+Pages / Tabs:
+  1. Search & Filter
+       - Sidebar filters: modality (multi-select), confidence tier,
+         LH timepoints (multi-select checkboxes), sub-compartments,
+         disease group, platform, year range.
+       - Main panel: sortable, filterable data table (st.dataframe).
+       - "Export filtered list" button → downloads filtered CSV.
+
+  2. Dataset Detail
+       - Click any row → expand full paper summary, confidence score
+         breakdown (bar chart per dimension), download links.
+
+  3. Download Manager
+       - Checklist of GOLD + SILVER datasets.
+       - "Generate download script" → produces download_manifest.sh
+         for the selected subset.
+       - Shows estimated total file size before download.
+
+  4. Statistics Dashboard (see §7)
+
+  5. Documentation
+       - Embedded README and methodology notes.
+
+
+================================================================================
+7. REPORT / STATISTICS INTERFACE
+================================================================================
+
+All plots rendered with Plotly (interactive) and exportable as SVG/PNG.
+Color palette: Duke blue (#00539B), Duke navy (#012169), Duke grey (#666666),
+               white (#FFFFFF), accent gold (#B5A369).
+
+Plot 1 — Dataset Count by LH Timepoint
+  Stacked bar chart. X-axis: LH timepoints (proliferative, LH+2, LH+5,
+  LH+7, LH+9, LH+12, late secretory). Y-axis: number of datasets.
+  Stacked by modality. Highlights WOI window (LH+5–LH+9) with
+  a shaded background band.
+
+Plot 2 — Sub-compartment Coverage Heatmap
+  Matrix heatmap. Rows: datasets (accession). Columns: cell types /
+  tissue compartments (LE, GE, stroma, uNK, macrophage, T cell,
+  endothelium, etc.). Cell = 1 if compartment present, 0 if absent.
+  Color: Duke blue gradient.
+
+Plot 3 — Disease Group Distribution
+  Donut chart. Segments: healthy controls, endometriosis, RIF,
+  PCOS, thin endometrium, mixed/other.
+
+Plot 4 — Sample Size Distribution
+  Violin + strip plot. X: modality. Y: N_patients. Overlaid points
+  colored by confidence tier (GOLD/SILVER/BRONZE).
+
+Plot 5 — Demographic Summary (where available)
+  Box plots for patient age and BMI, faceted by disease group.
+
+Plot 6 — Abstract Keyword Co-occurrence Network
+  Network graph (Plotly or pyvis). Nodes = keywords extracted from
+  abstracts via TF-IDF (top 30 terms). Edge weight = co-occurrence
+  frequency. Node size = total frequency. Exclude generic stopwords.
+
+Plot 7 — Confidence Score Distribution
+  Histogram of final CS values, color-coded by tier.
+  Vertical lines marking tier thresholds (40, 60, 80).
+
+Plot 8 — Publication Timeline
+  Scatter plot. X: publication year. Y: confidence score.
+  Point size: N_cells or N_samples. Color: modality.
+
+
+================================================================================
+8. DEPLOYMENT
+================================================================================
+
+Platform:     Streamlit Community Cloud (https://streamlit.io/cloud)
+              — Free tier, sufficient for read-only dashboard.
+              — Deploy directly from GitHub repository (main branch).
+
+Authentication:
+              Implement st.secrets-based login gate:
+              - Single shared credentials: username + bcrypt-hashed password
+                stored in .streamlit/secrets.toml (gitignored).
+              - Session cookie persists login for 1 hour.
+              - Login page matches app style (Duke blue header, minimal form).
+
+Repository:   GitHub (public repository, private secrets).
+              Name suggestion: hickey-lab/endometrial-receptivity-db
+
+Fallback:     If Streamlit Cloud quota exceeded, secondary deployment
+              target is Hugging Face Spaces (Streamlit SDK, free tier).
+
+Environment:  Python 3.11+
+              requirements.txt pinned to exact versions.
+              conda environment.yml also provided for local use.
+
+
+================================================================================
+9. DOCUMENTATION
+================================================================================
+
+/documentation/ folder contents:
+
+  README.md (also in repo root)
+      - Project overview (1 paragraph)
+      - Repository structure diagram
+      - Quick start: clone → install → run scraper → launch app
+      - Environment setup (conda + pip instructions)
+      - Configuration: how to add new search terms or databases
+      - How to interpret confidence scores
+      - How to request controlled-access datasets (dbGaP/EGA guide)
+      - Citation instructions for the pipeline itself
+
+  METHODS.md
+      - Full description of scraping logic per database
+      - Confidence score formula with worked example
+      - Exclusion criteria and edge cases
+      - Known limitations and caveats
+
+  CHANGELOG.md
+      - Version history with dates and changes
+
+  API_KEYS.md (gitignored template)
+      - Instructions for obtaining NCBI API key, HCA token, etc.
+      - Template: api_keys_template.toml
+
+  data_dictionary.md
+      - Column-by-column description of metadata_master.csv
+        and confidence_scores.csv
+
+In-code documentation:
+      - All Python functions: NumPy-style docstrings
+      - Type hints on all function signatures
+      - Inline comments for non-obvious logic only
+
+
+================================================================================
+10. STRICT RULES
+================================================================================
+
+1. ACADEMIC INTEGRITY FIRST
+   - Only retrieve data from original, publicly accessible sources.
+   - Never fabricate, impute, or guess metadata. If a field is missing,
+     record it as "Not reported" — never leave it blank or estimated.
+   - All paper summaries must be grounded in the abstract/full text;
+     no hallucinated findings.
+
+2. CROSS-REFERENCING FOR PRECISION
+   - Every dataset accession must be verified against its source database
+     before inclusion (confirm the accession resolves and the tissue matches).
+   - Paper DOIs must resolve. If a DOI is broken, flag with status "DOI_BROKEN".
+   - Confidence scores must be reproducible: given the same dataset metadata,
+     the score formula must return the same value deterministically.
+
+3. DETAILED YET CONCISE DOCUMENTATION
+   - Every script must have a module-level docstring explaining its purpose,
+     inputs, outputs, and usage example.
+   - README must be self-sufficient: a new lab member with Python experience
+     should be able to reproduce the full pipeline within 30 minutes.
+
+4. REPRODUCIBILITY
+   - All scraping functions must be idempotent (re-running does not create
+     duplicate entries; checks for existing accessions before inserting).
+   - Seed random number generators where used.
+   - Log all API queries and responses to /output/scrape_log.txt with
+     timestamps.
+
+5. MODULARITY
+   - Each database has its own scraper module (e.g., scrapers/geo.py,
+     scrapers/arrayexpress.py).
+   - Confidence scoring is a standalone module (scoring/confidence.py)
+     so it can be updated independently.
+   - UI is fully decoupled from scraping logic; it reads only from
+     /output/ files.
+
+6. RATE LIMITING & API ETIQUETTE
+   - NCBI E-utilities: max 10 requests/second with API key, 3/sec without.
+   - Add configurable delay between requests (default 0.34 sec for NCBI).
+   - Respect robots.txt for any web-scraped sources.
+   - Cache API responses locally to avoid redundant calls on re-runs.
+
+================================================================================
+END OF SPECIFICATION
+================================================================================
