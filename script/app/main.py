@@ -1,327 +1,347 @@
 """
-Hickey Lab Endometrial Receptivity Database — Streamlit entry point.
+Hickey Lab Endometrial Receptivity Database — Home
 Run with: streamlit run script/app/main.py
 """
 
+from __future__ import annotations
+
 import json
-import os
 from pathlib import Path
 
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 
 from auth import check_password
 
 # ---------------------------------------------------------------------------
-# Page configuration (must be first Streamlit call)
+# Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Hickey Lab | Endometrial Receptivity DB",
+    page_title="Endometrial Receptivity Database | Hickey Lab",
     layout="wide",
     page_icon="🔬",
     initial_sidebar_state="expanded",
 )
 
 # ---------------------------------------------------------------------------
-# Paths — relative to this file's location
+# Paths
 # ---------------------------------------------------------------------------
-APP_DIR = Path(__file__).parent
-REPO_ROOT = APP_DIR.parent.parent          # Aim01_Database_Regeneration/
-OUTPUT_DIR = REPO_ROOT / "output"
-REGISTRY_PATH = OUTPUT_DIR / "datasets_registry.json"
-METADATA_PATH = OUTPUT_DIR / "metadata_master.csv"
-CONFIDENCE_PATH = OUTPUT_DIR / "confidence_scores.csv"
+APP_DIR        = Path(__file__).parent
+REPO_ROOT      = APP_DIR.parent.parent
+OUTPUT_DIR     = REPO_ROOT / "output"
+REGISTRY_PATH  = OUTPUT_DIR / "datasets_registry.json"
+METADATA_PATH  = OUTPUT_DIR / "metadata_master.csv"
+CONFIDENCE_PATH= OUTPUT_DIR / "confidence_scores.csv"
 
 # ---------------------------------------------------------------------------
-# Duke brand constants
+# Brand
 # ---------------------------------------------------------------------------
-DUKE_BLUE = "#00539B"
-DUKE_NAVY = "#012169"
-DUKE_GOLD = "#B5A369"
-DUKE_GREY = "#666666"
+DUKE_BLUE  = "#00539B"
+DUKE_NAVY  = "#012169"
+DUKE_GOLD  = "#B5A369"
+DUKE_GREY  = "#6b7280"
+
+MODALITY_COLORS = {
+    "scRNA-seq":               "#00539B",
+    "bulkRNA-seq":             "#B5A369",
+    "Spatial Transcriptomics": "#2E7D32",
+    "Spatial Proteomics":      "#E65100",
+}
 
 # ---------------------------------------------------------------------------
-# Auth gate
+# Auth
 # ---------------------------------------------------------------------------
 if not check_password():
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Global CSS
+# Global CSS — white, clean, academic
 # ---------------------------------------------------------------------------
-st.markdown(
-    f"""
-    <style>
-    /* Sidebar branding */
-    .sidebar-logo {{
-        font-family: system-ui, sans-serif;
-        font-size: 1.05rem;
-        font-weight: 700;
-        color: {DUKE_BLUE};
-        letter-spacing: 0.03em;
-        line-height: 1.3;
-    }}
-    .sidebar-sub {{
-        font-family: system-ui, sans-serif;
-        font-size: 0.78rem;
-        color: {DUKE_GREY};
-        margin-top: 0.15rem;
-    }}
-    .sidebar-divider {{
-        border-top: 2px solid {DUKE_GOLD};
-        margin: 0.6rem 0 1rem 0;
-    }}
-    /* Stat cards */
-    .stat-card {{
-        background: #F5F7FA;
-        border-left: 4px solid {DUKE_BLUE};
-        border-radius: 6px;
-        padding: 0.9rem 1.1rem;
-        font-family: system-ui, sans-serif;
-    }}
-    .stat-number {{
-        font-size: 2rem;
-        font-weight: 700;
-        color: {DUKE_NAVY};
-    }}
-    .stat-label {{
-        font-size: 0.82rem;
-        color: {DUKE_GREY};
-        margin-top: 0.1rem;
-    }}
-    /* Gold tier highlight */
-    .tier-gold {{ color: {DUKE_GOLD}; font-weight: 700; }}
-    .tier-silver {{ color: #9E9E9E; font-weight: 700; }}
-    .tier-bronze {{ color: #CD7F32; font-weight: 700; }}
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown("""
+<style>
+/* ── Background ── */
+.stApp,[data-testid="stAppViewContainer"]{background:#fff}
+[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
+[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
+/* ── Layout ── */
+.block-container{padding-top:2.5rem;padding-bottom:3rem;max-width:1140px}
+/* ── Dividers ── */
+hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.5rem 0!important}
+/* ── Buttons ── */
+.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif;letter-spacing:0.01em}
+.stButton>button[kind="primary"]{background:#00539B;border:none}
+/* ── Tables ── */
+[data-testid="stDataFrame"]{border:1px solid #e5e7eb;border-radius:2px}
+/* ── Cards ── */
+.metric-card{
+    background:#fff;border:1px solid #e5e7eb;
+    border-top:3px solid #00539B;border-radius:2px;
+    padding:1.2rem 1rem;font-family:Arial,sans-serif;
+}
+.metric-num{font-size:2.2rem;font-weight:700;color:#012169;line-height:1}
+.metric-lbl{font-size:0.7rem;color:#6b7280;margin-top:0.4rem;
+            letter-spacing:0.06em;text-transform:uppercase}
+.tier-gold  {border-top-color:#B5A369!important}
+.tier-silver{border-top-color:#9E9E9E!important}
+.tier-bronze{border-top-color:#CD7F32!important}
+.tier-low   {border-top-color:#d1d5db!important}
+/* ── Section headings ── */
+.section-label{
+    font-family:Arial,sans-serif;font-size:0.65rem;font-weight:700;
+    letter-spacing:0.1em;text-transform:uppercase;color:#6b7280;
+    margin-bottom:0.9rem;padding-bottom:0.4rem;border-bottom:1px solid #e5e7eb;
+}
+/* ── Page title ── */
+.page-title{
+    font-family:Arial,sans-serif;font-size:2rem;font-weight:700;
+    color:#012169;letter-spacing:-0.02em;margin-bottom:0.1rem;line-height:1.15;
+}
+.page-sub{
+    font-family:Arial,sans-serif;font-size:0.9rem;
+    color:#6b7280;margin:0 0 0 0;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Sidebar
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown(
-        """
-        <div class="sidebar-logo">HICKEY LAB</div>
-        <div class="sidebar-sub">Duke University</div>
-        <div class="sidebar-divider"></div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    st.markdown("**Navigation**")
-    st.page_link("main.py", label="Home", icon="🏠")
-    st.page_link("pages/01_Search.py", label="Search Datasets", icon="🔍")
-    st.page_link("pages/02_Dataset_Detail.py", label="Dataset Detail", icon="📄")
-    st.page_link("pages/03_Download.py", label="Download Manager", icon="⬇️")
-    st.page_link("pages/04_Statistics.py", label="Statistics Dashboard", icon="📊")
-    st.page_link("pages/05_Documentation.py", label="Documentation", icon="📚")
-
-    st.markdown("---")
-    st.markdown(
-        """
-        <div style="font-family:system-ui,sans-serif; font-size:0.78rem; color:#666;">
-        <strong>About</strong><br>
-        This database catalogues single-cell, bulk, and spatial transcriptomic/proteomic
-        studies of human endometrial receptivity. Datasets are scored on a 0–100
-        confidence scale across five quality dimensions.
+    st.markdown("""
+    <div style="font-family:Arial,sans-serif;padding:0.5rem 0 1rem 0">
+        <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.14em;
+                    text-transform:uppercase;color:#9ca3af;margin-bottom:0.35rem">
+            HICKEY LAB · DUKE UNIVERSITY
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+        <div style="font-size:1rem;font-weight:700;color:#012169;line-height:1.25">
+            Endometrial<br>Receptivity DB
+        </div>
+        <div style="margin-top:0.85rem;height:1px;background:#e5e7eb"></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.markdown("""
+    <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;
+                text-transform:uppercase;color:#9ca3af;margin-bottom:0.5rem">
+        Navigation
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.page_link("main.py",                    label="Home",            icon="·")
+    st.page_link("pages/01_Search.py",         label="Search Datasets", icon="·")
+    st.page_link("pages/02_Dataset_Detail.py", label="Dataset Detail",  icon="·")
+    st.page_link("pages/03_Download.py",       label="Downloads",       icon="·")
+    st.page_link("pages/04_Statistics.py",     label="Statistics",      icon="·")
+    st.page_link("pages/05_Documentation.py",  label="Documentation",   icon="·")
+
+    st.markdown('<div style="margin-top:1rem;height:1px;background:#e5e7eb"></div>',
+                unsafe_allow_html=True)
+    st.markdown("""
+    <div style="font-size:0.72rem;color:#9ca3af;font-family:Arial,sans-serif;
+                line-height:1.6;margin-top:0.75rem">
+        Datasets catalogued from GEO, ArrayExpress, CELLxGENE, HCA, Zenodo,
+        and figshare. Each scored 0–100 across five quality dimensions.
+    </div>
+    """, unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Data loading
 # ---------------------------------------------------------------------------
 @st.cache_data(ttl=3600)
 def load_output_data():
-    """Load metadata_master.csv and confidence_scores.csv from output/."""
     meta_df = None
     conf_df = None
-
     if METADATA_PATH.exists():
         meta_df = pd.read_csv(METADATA_PATH)
     if CONFIDENCE_PATH.exists():
         conf_df = pd.read_csv(CONFIDENCE_PATH)
-
     return meta_df, conf_df
-
 
 @st.cache_data(ttl=3600)
 def load_registry() -> dict:
-    """Load datasets_registry.json."""
     if REGISTRY_PATH.exists():
         with open(REGISTRY_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
-
-meta_df, conf_df = load_output_data()
-registry = load_registry()
-
-# ---------------------------------------------------------------------------
-# Missing-data warning banner
-# ---------------------------------------------------------------------------
-output_missing = not METADATA_PATH.exists() or not CONFIDENCE_PATH.exists()
-if output_missing:
-    st.warning(
-        "Output files not found. Run the pipeline first: `python script/run_pipeline.py`",
-        icon="⚠️",
-    )
+meta_df, conf_df  = load_output_data()
+registry          = load_registry()
+output_missing    = not METADATA_PATH.exists() or not CONFIDENCE_PATH.exists()
 
 # ---------------------------------------------------------------------------
-# Landing page
-# ---------------------------------------------------------------------------
-st.markdown(
-    f"""
-    <h1 style="font-family:system-ui,sans-serif; color:{DUKE_NAVY}; margin-bottom:0.2rem;">
-        Endometrial Receptivity Database
-    </h1>
-    <p style="font-family:system-ui,sans-serif; color:{DUKE_GREY}; font-size:1.05rem; margin-top:0;">
-        Hickey Lab &mdash; Duke University &nbsp;|&nbsp; Aim 01: Database Regeneration
-    </p>
-    """,
-    unsafe_allow_html=True,
-)
-st.markdown(
-    f'<hr style="border-top:3px solid {DUKE_GOLD}; margin-bottom:1.5rem;">',
-    unsafe_allow_html=True,
-)
-
-# Project description
-st.markdown(
-    """
-    ### Project Overview
-
-    This resource aggregates multi-omic datasets profiling the human endometrium across the
-    menstrual cycle, with particular focus on the **Window of Implantation (WOI)** — the
-    narrow peri-implantation window (LH+5 to LH+9) during which the endometrium becomes
-    receptive to embryo implantation.
-
-    Datasets are curated from nine public repositories (GEO, ArrayExpress, ENCODE, GTEx,
-    HCA, dbGaP, EGA, CELLxGENE, Zenodo) and scored on a **0–100 confidence scale**
-    across five quality dimensions:
-
-    | Dimension | Abbrev | Weight |
-    |-----------|--------|--------|
-    | Data Quality Score | DQS | 25 pts |
-    | Temporal Resolution Score | TRS | 25 pts |
-    | Sample Representation Score | SRS | 20 pts |
-    | Methodological Completeness Score | MCS | 20 pts |
-    | Data Accessibility Score | DAS | 10 pts |
-
-    Datasets scoring ≥80 are **GOLD**, 60–79 **SILVER**, 40–59 **BRONZE**, and <40
-    **LOW_CONFIDENCE**.
-    """,
-    unsafe_allow_html=True,
-)
-
-st.divider()
-
-# ---------------------------------------------------------------------------
-# Summary statistics
-# ---------------------------------------------------------------------------
-st.markdown("### Dataset Summary")
-
 # Compute counts
+# ---------------------------------------------------------------------------
 if registry:
-    datasets = registry.get("datasets", registry) if isinstance(registry, dict) else []
     if isinstance(registry, dict) and "datasets" in registry:
         ds_list = registry["datasets"]
     elif isinstance(registry, dict):
         ds_list = list(registry.values())
     else:
         ds_list = registry
-
     total = len(ds_list)
-
     def _count_tier(tier: str) -> int:
         return sum(
             1 for d in ds_list
             if (d.get("confidence_tier") or d.get("tier") or "").upper() == tier
         )
-
-    gold_n = _count_tier("GOLD")
-    silver_n = _count_tier("SILVER")
-    bronze_n = _count_tier("BRONZE")
-    low_n = _count_tier("LOW_CONFIDENCE")
+    gold_n, silver_n, bronze_n, low_n = (
+        _count_tier("GOLD"), _count_tier("SILVER"),
+        _count_tier("BRONZE"), _count_tier("LOW_CONFIDENCE"),
+    )
 elif meta_df is not None:
-    total = len(meta_df)
+    total    = len(meta_df)
     tier_col = next((c for c in meta_df.columns if "tier" in c.lower()), None)
     if tier_col:
-        gold_n = int((meta_df[tier_col].str.upper() == "GOLD").sum())
+        gold_n   = int((meta_df[tier_col].str.upper() == "GOLD").sum())
         silver_n = int((meta_df[tier_col].str.upper() == "SILVER").sum())
         bronze_n = int((meta_df[tier_col].str.upper() == "BRONZE").sum())
-        low_n = int((meta_df[tier_col].str.upper() == "LOW_CONFIDENCE").sum())
+        low_n    = int((meta_df[tier_col].str.upper() == "LOW_CONFIDENCE").sum())
     else:
         gold_n = silver_n = bronze_n = low_n = 0
 else:
     total = gold_n = silver_n = bronze_n = low_n = 0
 
-col1, col2, col3, col4, col5 = st.columns(5)
+# ---------------------------------------------------------------------------
+# Page header
+# ---------------------------------------------------------------------------
+st.markdown("""
+<p class="page-title">Endometrial Receptivity Database</p>
+<p class="page-sub">Hickey Lab &nbsp;·&nbsp; Duke University &nbsp;·&nbsp; Aim 01: Database Regeneration</p>
+""", unsafe_allow_html=True)
+st.markdown(
+    '<div style="height:1px;background:#e5e7eb;margin:1rem 0 1.75rem 0"></div>',
+    unsafe_allow_html=True,
+)
 
-def _stat_card(col, number, label, border_color=DUKE_BLUE):
+if output_missing:
+    st.warning(
+        "Output files not found. Run the pipeline from the **⚙ Run Pipeline** page.",
+        icon="⚠️",
+    )
+
+# ---------------------------------------------------------------------------
+# Stat cards
+# ---------------------------------------------------------------------------
+st.markdown('<div class="section-label">Dataset Summary</div>', unsafe_allow_html=True)
+
+c1, c2, c3, c4, c5 = st.columns(5)
+
+def _card(col, num, lbl, extra_cls=""):
     col.markdown(
-        f"""
-        <div class="stat-card" style="border-left-color:{border_color};">
-            <div class="stat-number">{number}</div>
-            <div class="stat-label">{label}</div>
-        </div>
-        """,
+        f"""<div class="metric-card {extra_cls}">
+            <div class="metric-num">{num:,}</div>
+            <div class="metric-lbl">{lbl}</div>
+        </div>""",
         unsafe_allow_html=True,
     )
 
-_stat_card(col1, total, "Total Datasets")
-_stat_card(col2, gold_n, "GOLD Datasets", DUKE_GOLD)
-_stat_card(col3, silver_n, "SILVER Datasets", "#9E9E9E")
-_stat_card(col4, bronze_n, "BRONZE Datasets", "#CD7F32")
-_stat_card(col5, low_n, "Low Confidence", DUKE_GREY)
+_card(c1, total,    "Total Datasets")
+_card(c2, gold_n,   "Gold",            "tier-gold")
+_card(c3, silver_n, "Silver",          "tier-silver")
+_card(c4, bronze_n, "Bronze",          "tier-bronze")
+_card(c5, low_n,    "Low Confidence",  "tier-low")
 
-st.divider()
+st.markdown('<div style="margin-bottom:2rem"></div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Modality breakdown (if data available)
+# About + scoring dimensions
 # ---------------------------------------------------------------------------
+st.markdown('<div class="section-label">About This Resource</div>', unsafe_allow_html=True)
+
+col_txt, col_score = st.columns([3, 2], gap="large")
+
+with col_txt:
+    st.markdown("""
+    <div style="font-family:Arial,sans-serif;font-size:0.875rem;color:#374151;line-height:1.75">
+    <p>This resource aggregates multi-omic datasets profiling the human endometrium across
+    the menstrual cycle, with particular focus on the <strong>Window of Implantation (WOI)</strong>
+    — the narrow peri-implantation window (LH+5 to LH+9) during which the endometrium becomes
+    receptive to embryo implantation.</p>
+    <p>Datasets are catalogued from GEO, ArrayExpress, CELLxGENE, HCA, Single Cell Portal,
+    Zenodo, and figshare. Each dataset is independently scored on a
+    <strong>0–100 composite confidence scale</strong> across five quality dimensions.</p>
+    <p style="margin-bottom:0">Use the <strong>Search</strong> page to filter by modality, tissue collection
+    site, LH timepoint, disease group, or free-text query. Use the <strong>Download Manager</strong>
+    to generate batch wget scripts for GOLD and SILVER datasets.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+with col_score:
+    st.markdown("""
+    <div style="font-family:Arial,sans-serif">
+    <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;
+                color:#9ca3af;margin-bottom:0.85rem">
+        Confidence Score Dimensions
+    </div>
+    """, unsafe_allow_html=True)
+
+    dims = [
+        ("DQS", "Data Quality Score",                  25),
+        ("TRS", "Temporal Resolution Score",            25),
+        ("SRS", "Sample Representation Score",          20),
+        ("MCS", "Methodological Completeness Score",    20),
+        ("DAS", "Data Accessibility Score",             10),
+    ]
+    for abbr, name, pts in dims:
+        st.markdown(f"""
+        <div style="margin-bottom:0.7rem">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:2px">
+                <span style="font-size:0.8rem;font-weight:700;color:#012169">{abbr}</span>
+                <span style="font-size:0.7rem;color:#9ca3af">{pts} pts</span>
+            </div>
+            <div style="font-size:0.7rem;color:#6b7280;margin-bottom:4px">{name}</div>
+            <div style="height:3px;background:#e5e7eb;border-radius:1px">
+                <div style="height:3px;background:#00539B;border-radius:1px;width:{pts}%"></div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ---------------------------------------------------------------------------
+# Modality distribution chart (Nature style)
+# ---------------------------------------------------------------------------
+st.markdown('<div style="margin-top:1.75rem"></div>', unsafe_allow_html=True)
+st.markdown('<div class="section-label">Modality Distribution</div>', unsafe_allow_html=True)
+
 if meta_df is not None and not meta_df.empty:
-    st.markdown("### Modality Breakdown")
     mod_col = next((c for c in meta_df.columns if "modality" in c.lower()), None)
     if mod_col:
         mod_counts = meta_df[mod_col].value_counts().reset_index()
         mod_counts.columns = ["Modality", "Count"]
 
-        import plotly.express as px
-
-        MODALITY_COLORS = {
-            "scRNA-seq": DUKE_BLUE,
-            "bulkRNA-seq": DUKE_GOLD,
-            "Spatial Transcriptomics": DUKE_NAVY,
-            "Spatial Proteomics": "#4A90D9",
-        }
         fig = px.bar(
-            mod_counts,
-            x="Modality",
-            y="Count",
+            mod_counts, x="Modality", y="Count",
             color="Modality",
             color_discrete_map=MODALITY_COLORS,
-            template="simple_white",
         )
         fig.update_layout(
+            template="simple_white",
             showlegend=False,
-            margin=dict(t=20, b=20, l=20, r=20),
-            font=dict(family="system-ui, sans-serif"),
+            font=dict(family="Arial, Helvetica, sans-serif", size=11, color="#1a1a2e"),
+            plot_bgcolor="white", paper_bgcolor="white",
+            xaxis=dict(showgrid=False, linecolor="#333", linewidth=0.8,
+                       ticks="outside", ticklen=4, tickwidth=0.8, tickcolor="#333"),
+            yaxis=dict(showgrid=True, gridcolor="#f0f0f0", gridwidth=0.5,
+                       linecolor="#333", linewidth=0.8, ticks="outside", ticklen=4,
+                       tickwidth=0.8, tickcolor="#333", title="Count"),
+            margin=dict(l=55, r=20, t=15, b=45),
+            height=250,
         )
         st.plotly_chart(fig, use_container_width=True)
 elif not output_missing:
-    st.info("No metadata loaded. Check output directory.")
+    st.info("No metadata loaded. Check the output directory.")
 
-st.divider()
+# ---------------------------------------------------------------------------
+# Footer
+# ---------------------------------------------------------------------------
 st.markdown(
-    f"""
-    <p style="font-family:system-ui,sans-serif; font-size:0.8rem; color:{DUKE_GREY}; text-align:center;">
-    Hickey Lab &mdash; Duke University &nbsp;&bull;&nbsp; Endometrial Receptivity Aim 01
-    </p>
-    """,
+    '<div style="margin-top:2.5rem;height:1px;background:#e5e7eb"></div>',
     unsafe_allow_html=True,
 )
+st.markdown("""
+<div style="font-family:Arial,sans-serif;font-size:0.7rem;color:#9ca3af;
+            text-align:center;padding:0.85rem 0">
+    Hickey Lab · Duke University · Endometrial Receptivity Aim 01
+</div>
+""", unsafe_allow_html=True)

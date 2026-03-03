@@ -2,8 +2,12 @@
 Documentation — Endometrial Receptivity Database
 """
 
-from pathlib import Path
+from __future__ import annotations
+
 import sys
+from pathlib import Path
+
+import pandas as pd
 import streamlit as st
 
 # ---------------------------------------------------------------------------
@@ -17,7 +21,7 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Auth guard
+# Auth
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from auth import check_password
@@ -26,22 +30,66 @@ if not check_password():
     st.stop()
 
 # ---------------------------------------------------------------------------
-# Constants
+# Global CSS
 # ---------------------------------------------------------------------------
-DUKE_BLUE = "#00539B"
-DUKE_NAVY = "#012169"
-DUKE_GOLD = "#B5A369"
+st.markdown("""
+<style>
+.stApp,[data-testid="stAppViewContainer"]{background:#fff}
+[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
+[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
+.block-container{padding-top:2rem;padding-bottom:3rem;max-width:1100px}
+hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.25rem 0!important}
+.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif}
+[data-testid="stDataFrame"]{border:1px solid #e5e7eb;border-radius:2px}
+/* Tab styling */
+[data-testid="stTabs"] [role="tab"]{
+    font-family:Arial,sans-serif;font-size:0.82rem;
+    font-weight:500;color:#6b7280;
+}
+[data-testid="stTabs"] [role="tab"][aria-selected="true"]{
+    color:#012169;font-weight:700;
+    border-bottom-color:#00539B!important;
+}
+/* Prose */
+.prose{font-family:Arial,sans-serif;font-size:0.875rem;color:#374151;line-height:1.75}
+.prose h2{font-size:1.15rem;font-weight:700;color:#012169;margin:1.5rem 0 0.5rem 0}
+.prose h3{font-size:0.95rem;font-weight:700;color:#012169;margin:1.2rem 0 0.35rem 0}
+.prose p{margin:0 0 0.75rem 0}
+.prose code{background:#f3f4f6;padding:1px 5px;border-radius:2px;
+            font-size:0.8rem;font-family:monospace;color:#374151}
+.prose pre{background:#f8f9fa;border:1px solid #e5e7eb;border-radius:2px;
+           padding:0.85rem 1rem;overflow-x:auto;margin:0.75rem 0}
+.prose pre code{background:none;padding:0;font-size:0.8rem}
+.prose table{width:100%;border-collapse:collapse;font-size:0.82rem;margin:0.75rem 0}
+.prose th{background:#f8f9fa;font-weight:700;color:#012169;
+          padding:0.5rem 0.75rem;border:1px solid #e5e7eb;text-align:left}
+.prose td{padding:0.45rem 0.75rem;border:1px solid #e5e7eb;color:#374151}
+.prose tr:nth-child(even){background:#fafafa}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
-# Page
+# Page header
 # ---------------------------------------------------------------------------
-st.title("📚 Documentation")
+st.markdown("""
+<p style="font-family:Arial,sans-serif;font-size:1.65rem;font-weight:700;
+          color:#012169;letter-spacing:-0.02em;margin-bottom:0">
+    Documentation
+</p>
+""", unsafe_allow_html=True)
+st.markdown(
+    '<div style="height:1px;background:#e5e7eb;margin:0.75rem 0 1.25rem 0"></div>',
+    unsafe_allow_html=True,
+)
 
+# ---------------------------------------------------------------------------
+# Tabs
+# ---------------------------------------------------------------------------
 tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Getting Started",
     "Confidence Score",
     "Data Dictionary",
-    "Databases",
+    "Source Databases",
     "Search Terms",
     "Controlled Access",
 ])
@@ -50,214 +98,188 @@ tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
 # Tab 1 — Getting Started
 # ===========================================================================
 with tab1:
-    st.markdown(
-        f"""
-        ## Getting Started
+    st.markdown("""
+<div class="prose">
 
-        ### Prerequisites
+<h2>Getting Started</h2>
 
-        - Python ≥ 3.10
-        - Git
-        - conda or virtualenv (recommended)
+<h3>Prerequisites</h3>
+<p>Python ≥ 3.10 · Git · conda or virtualenv (recommended)</p>
 
-        ---
+<h3>1. Clone the repository</h3>
+<pre><code>git clone &lt;repo-url&gt;
+cd Aim01_Database_Regeneration</code></pre>
 
-        ### 1. Clone the repository
+<h3>2. Install dependencies</h3>
+<pre><code>pip install -r requirements.txt</code></pre>
 
-        ```bash
-        git clone <repo-url>
-        cd Aim01_Database_Regeneration
-        ```
+<p>Key packages:</p>
+<ul>
+<li><code>streamlit</code> — web application framework</li>
+<li><code>pandas</code>, <code>numpy</code> — data manipulation</li>
+<li><code>plotly</code> — interactive visualisations</li>
+<li><code>bcrypt</code> — password hashing for authentication</li>
+<li><code>scikit-learn</code> — TF-IDF keyword extraction</li>
+<li><code>networkx</code> — keyword co-occurrence graph layout</li>
+<li><code>requests</code>, <code>GEOparse</code> — database scrapers</li>
+</ul>
 
-        ---
+<h3>3. Configure authentication</h3>
+<p>Create <code>.streamlit/secrets.toml</code> in the project root:</p>
+<pre><code>[auth]
+username = "hickeylab"
+password_hash = "$2b$12$..."   # generate with bcrypt below
 
-        ### 2. Install dependencies
+[ncbi]
+api_key = "your-ncbi-api-key"</code></pre>
 
-        ```bash
-        pip install -r requirements.txt
-        ```
+<p>Generate a bcrypt hash:</p>
+<pre><code>import bcrypt
+pw = b"your-password-here"
+print(bcrypt.hashpw(pw, bcrypt.gensalt()).decode())</code></pre>
 
-        Key packages include:
-        - `streamlit` — web application framework
-        - `pandas`, `numpy` — data manipulation
-        - `plotly` — interactive visualisations
-        - `bcrypt` — password hashing for authentication
-        - `scikit-learn` — TF-IDF keyword extraction
-        - `networkx` — keyword co-occurrence graph layout
-        - `requests`, `biopython`, `GEOparse` — database scrapers
+<h3>4. Run the data pipeline</h3>
+<pre><code>python script/run_pipeline.py</code></pre>
 
-        ---
+<p>This will:</p>
+<ol>
+<li>Scrape all source databases</li>
+<li>Download and parse metadata</li>
+<li>Score each dataset (0–100)</li>
+<li>Write <code>output/metadata_master.csv</code>, <code>confidence_scores.csv</code>, and <code>datasets_registry.json</code></li>
+</ol>
 
-        ### 3. Configure authentication
+<h3>5. Launch the application</h3>
+<pre><code>streamlit run script/app/main.py</code></pre>
+<p>Opens at <code>http://localhost:8501</code>.</p>
 
-        Create `.streamlit/secrets.toml` in the project root:
+<h3>Directory structure</h3>
+<pre><code>Aim01_Database_Regeneration/
+├── script/
+│   ├── app/              ← Streamlit application
+│   │   ├── main.py
+│   │   ├── auth.py
+│   │   └── pages/
+│   ├── scrapers/         ← Per-database scrapers
+│   ├── scoring/          ← Confidence scoring engine
+│   └── run_pipeline.py   ← Pipeline entry point
+├── output/
+│   ├── metadata_master.csv
+│   ├── confidence_scores.csv
+│   └── datasets_registry.json
+└── .streamlit/
+    └── secrets.toml      ← Auth credentials (never commit)</code></pre>
 
-        ```toml
-        [auth]
-        username = "hickeylab"
-        password_hash = "$2b$12$..."   # bcrypt hash — generate with script below
-        ```
-
-        Generate a bcrypt hash:
-
-        ```python
-        import bcrypt
-        pw = b"your-password-here"
-        print(bcrypt.hashpw(pw, bcrypt.gensalt()).decode())
-        ```
-
-        ---
-
-        ### 4. Run the data pipeline
-
-        ```bash
-        python script/run_pipeline.py
-        ```
-
-        This will:
-        1. Scrape all nine source databases
-        2. Download and parse metadata
-        3. Score each dataset (0–100)
-        4. Write `output/metadata_master.csv`, `output/confidence_scores.csv`,
-           and `output/datasets_registry.json`
-
-        ---
-
-        ### 5. Launch the web application
-
-        ```bash
-        streamlit run script/app/main.py
-        ```
-
-        The app will open at `http://localhost:8501`.
-
-        ---
-
-        ### Directory structure
-
-        ```
-        Aim01_Database_Regeneration/
-        ├── script/
-        │   ├── app/              ← Streamlit application (this code)
-        │   │   ├── main.py
-        │   │   ├── auth.py
-        │   │   └── pages/
-        │   ├── scrapers/         ← Per-database scrapers
-        │   ├── scoring/          ← Confidence scoring engine
-        │   └── run_pipeline.py   ← Pipeline entry point
-        ├── output/
-        │   ├── metadata_master.csv
-        │   ├── confidence_scores.csv
-        │   └── datasets_registry.json
-        └── .streamlit/
-            └── secrets.toml      ← Auth credentials (never commit)
-        ```
-        """
-    )
+</div>
+""", unsafe_allow_html=True)
 
 # ===========================================================================
 # Tab 2 — Confidence Score
 # ===========================================================================
 with tab2:
-    st.markdown(
-        """
-        ## Confidence Score System
+    st.markdown("""
+<div class="prose">
 
-        Each dataset receives a **composite score from 0 to 100** derived from five
-        independently weighted dimensions. The score determines the tier assignment.
+<h2>Confidence Score System</h2>
 
-        ### Tier Thresholds
+<p>Each dataset receives a <strong>composite score from 0 to 100</strong> derived from five
+independently weighted dimensions. The score determines the tier assignment.</p>
 
-        | Score Range | Tier | Meaning |
-        |------------|------|---------|
-        | ≥ 80 | **GOLD** | High-priority; use without major caveats |
-        | 60 – 79 | **SILVER** | Good quality; minor limitations noted |
-        | 40 – 59 | **BRONZE** | Usable with caution; key limitations present |
-        | < 40 | **LOW_CONFIDENCE** | Significant quality issues; use with care |
+<h3>Tier Thresholds</h3>
 
-        ---
+<table>
+<tr><th>Score Range</th><th>Tier</th><th>Interpretation</th></tr>
+<tr><td>≥ 80</td><td><strong>GOLD</strong></td><td>High-priority; use without major caveats</td></tr>
+<tr><td>60 – 79</td><td><strong>SILVER</strong></td><td>Good quality; minor limitations noted</td></tr>
+<tr><td>40 – 59</td><td><strong>BRONZE</strong></td><td>Usable with caution; key limitations present</td></tr>
+<tr><td>&lt; 40</td><td><strong>LOW CONFIDENCE</strong></td><td>Significant quality issues; use with care</td></tr>
+</table>
 
-        ### Scoring Dimensions
+<h3>Scoring Dimensions</h3>
 
-        | Dimension | Abbreviation | Max Points | Description |
-        |-----------|-------------|-----------|-------------|
-        | Data Quality Score | **DQS** | 25 | Raw data availability, sequencing depth, QC metrics |
-        | Temporal Resolution Score | **TRS** | 25 | LH/P+x staging coverage across the cycle |
-        | Sample Representation Score | **SRS** | 20 | Patient N, disease groups, demographic diversity |
-        | Methodological Completeness Score | **MCS** | 20 | Protocols, antibodies, cell isolation, reproducibility |
-        | Data Accessibility Score | **DAS** | 10 | Open access vs. controlled; download convenience |
+<table>
+<tr><th>Dimension</th><th>Abbrev.</th><th>Max pts</th><th>Description</th></tr>
+<tr><td>Data Quality Score</td><td><strong>DQS</strong></td><td>25</td>
+    <td>Raw data availability, sequencing depth, QC metrics</td></tr>
+<tr><td>Temporal Resolution Score</td><td><strong>TRS</strong></td><td>25</td>
+    <td>LH/P+x staging coverage across the menstrual cycle</td></tr>
+<tr><td>Sample Representation Score</td><td><strong>SRS</strong></td><td>20</td>
+    <td>Patient N, disease groups, demographic diversity</td></tr>
+<tr><td>Methodological Completeness Score</td><td><strong>MCS</strong></td><td>20</td>
+    <td>Protocols, antibodies, cell isolation, reproducibility</td></tr>
+<tr><td>Data Accessibility Score</td><td><strong>DAS</strong></td><td>10</td>
+    <td>Open access vs. controlled; download convenience</td></tr>
+</table>
 
-        ---
+<h3>Formula</h3>
+<pre><code>Total Score = DQS + TRS + SRS + MCS + DAS − Σ(penalties)</code></pre>
 
-        ### Formula
+<p>Penalties are applied for:</p>
+<ul>
+<li>Missing metadata fields (per dimension)</li>
+<li>No raw counts matrix (DQS −5)</li>
+<li>Fewer than 3 LH timepoints (TRS −5)</li>
+<li>N &lt; 5 patients (SRS −5)</li>
+<li>No protocol/methods section (MCS −5)</li>
+<li>Controlled access only with no alternative (DAS −3)</li>
+</ul>
 
-        ```
-        Total Score = DQS + TRS + SRS + MCS + DAS − Σ(penalties)
-        ```
+<h3>DQS sub-criteria (25 pts)</h3>
+<table>
+<tr><th>Sub-criterion</th><th>Points</th></tr>
+<tr><td>Raw counts matrix available</td><td>8</td></tr>
+<tr><td>QC metrics reported (% MT, doublets)</td><td>5</td></tr>
+<tr><td>Sequencing depth ≥ 50,000 reads/cell</td><td>5</td></tr>
+<tr><td>Platform documented</td><td>4</td></tr>
+<tr><td>Cell Ranger / pipeline version stated</td><td>3</td></tr>
+</table>
 
-        Penalties are applied for:
-        - Missing metadata fields (per dimension)
-        - No raw counts matrix (DQS −5)
-        - Fewer than 3 LH timepoints (TRS −5)
-        - N < 5 patients (SRS −5)
-        - No protocol/methods section (MCS −5)
-        - Controlled access only with no alternative (DAS −3)
+<h3>TRS sub-criteria (25 pts)</h3>
+<table>
+<tr><th>Sub-criterion</th><th>Points</th></tr>
+<tr><td>LH or P+x staging documented</td><td>10</td></tr>
+<tr><td>WOI window covered (LH+5–LH+9)</td><td>8</td></tr>
+<tr><td>≥ 5 distinct timepoints</td><td>5</td></tr>
+<tr><td>Proliferative and secretory both present</td><td>2</td></tr>
+</table>
 
-        ---
+<h3>SRS sub-criteria (20 pts)</h3>
+<table>
+<tr><th>Sub-criterion</th><th>Points</th></tr>
+<tr><td>N ≥ 20 patients</td><td>8</td></tr>
+<tr><td>Includes disease group (RIF, endometriosis…)</td><td>5</td></tr>
+<tr><td>Age and BMI reported</td><td>4</td></tr>
+<tr><td>Ethnicity / reproductive history noted</td><td>3</td></tr>
+</table>
 
-        ### DQS sub-criteria (25 pts)
+<h3>MCS sub-criteria (20 pts)</h3>
+<table>
+<tr><th>Sub-criterion</th><th>Points</th></tr>
+<tr><td>Cell isolation protocol described</td><td>7</td></tr>
+<tr><td>Library preparation kit named</td><td>5</td></tr>
+<tr><td>Antibody panel (spatial / CITE-seq)</td><td>4</td></tr>
+<tr><td>Bioinformatics pipeline documented</td><td>4</td></tr>
+</table>
 
-        | Sub-criterion | Points |
-        |--------------|--------|
-        | Raw counts matrix available | 8 |
-        | QC metrics reported (% MT, doublets) | 5 |
-        | Sequencing depth ≥ 50,000 reads/cell | 5 |
-        | Platform documented | 4 |
-        | Cell ranger / pipeline version stated | 3 |
+<h3>DAS sub-criteria (10 pts)</h3>
+<table>
+<tr><th>Sub-criterion</th><th>Points</th></tr>
+<tr><td>Fully open access</td><td>6</td></tr>
+<tr><td>Direct download URL available</td><td>4</td></tr>
+</table>
 
-        ### TRS sub-criteria (25 pts)
-
-        | Sub-criterion | Points |
-        |--------------|--------|
-        | LH or P+x staging documented | 10 |
-        | WOI window covered (LH+5–LH+9) | 8 |
-        | ≥ 5 distinct timepoints | 5 |
-        | Proliferative and secretory both present | 2 |
-
-        ### SRS sub-criteria (20 pts)
-
-        | Sub-criterion | Points |
-        |--------------|--------|
-        | N ≥ 20 patients | 8 |
-        | Includes disease group (e.g. RIF, endometriosis) | 5 |
-        | Age and BMI reported | 4 |
-        | Ethnicity / reproductive history noted | 3 |
-
-        ### MCS sub-criteria (20 pts)
-
-        | Sub-criterion | Points |
-        |--------------|--------|
-        | Cell isolation protocol described | 7 |
-        | Library preparation kit named | 5 |
-        | Antibody panel (for spatial/CITE-seq) | 4 |
-        | Bioinformatics pipeline documented | 4 |
-
-        ### DAS sub-criteria (10 pts)
-
-        | Sub-criterion | Points |
-        |--------------|--------|
-        | Fully open access | 6 |
-        | Direct download URL available | 4 |
-        """
-    )
+</div>
+""", unsafe_allow_html=True)
 
 # ===========================================================================
 # Tab 3 — Data Dictionary
 # ===========================================================================
 with tab3:
-    st.markdown("## Data Dictionary — `metadata_master.csv`")
-
-    import pandas as pd
+    st.markdown("""
+<div class="prose">
+<h2>Data Dictionary — <code>metadata_master.csv</code></h2>
+</div>
+""", unsafe_allow_html=True)
 
     data_dict = [
         ("accession",          "str",   "Primary accession (GEO, ArrayExpress, EGA…)"),
@@ -273,8 +295,8 @@ with tab3:
         ("n_cells",            "int",   "Total cells (scRNA-seq / spatial) or N/A for bulk"),
         ("n_samples",          "int",   "Number of sequencing samples"),
         ("lh_timepoints",      "str",   "Comma-separated LH/P+x timepoints (e.g. LH+0, LH+5)"),
-        ("sub_compartments",   "str",   "Comma-separated cell types or tissue compartments profiled"),
-        ("disease_group",      "str",   "Disease/condition (e.g. Healthy, RIF, Endometriosis)"),
+        ("sub_compartments",   "str",   "Comma-separated tissue collection sites or cell populations"),
+        ("disease_group",      "str",   "Disease/condition (e.g. Healthy, RIF, Endometriosis); may be comma-separated"),
         ("age",                "float", "Mean donor age (years) where reported"),
         ("bmi",                "float", "Mean BMI where reported"),
         ("abstract",           "str",   "Full abstract text from publication"),
@@ -295,211 +317,200 @@ with tab3:
     dd_df = pd.DataFrame(data_dict, columns=["Column", "Type", "Description"])
     st.dataframe(
         dd_df.style.set_properties(
-            subset=["Column"], **{"font-family": "monospace", "font-size": "0.85rem"}
+            subset=["Column"],
+            **{"font-family": "monospace", "font-size": "0.82rem"},
         ),
         use_container_width=True,
         hide_index=True,
     )
 
 # ===========================================================================
-# Tab 4 — Databases
+# Tab 4 — Source Databases
 # ===========================================================================
 with tab4:
-    st.markdown("## Source Databases")
-
-    import pandas as pd
+    st.markdown("""
+<div class="prose">
+<h2>Source Databases</h2>
+</div>
+""", unsafe_allow_html=True)
 
     db_table = [
-        ("GEO",         "NCBI Gene Expression Omnibus",       "https://www.ncbi.nlm.nih.gov/geo/",            "Open",       "GEO query API (Entrez)"),
-        ("ArrayExpress","EBI ArrayExpress / BioStudies",       "https://www.ebi.ac.uk/biostudies/arrayexpress","Open",       "BioStudies REST API"),
-        ("ENCODE",      "Encyclopedia of DNA Elements",         "https://www.encodeproject.org/",              "Open",       "ENCODE REST API"),
-        ("GTEx",        "Genotype-Tissue Expression Project",   "https://gtexportal.org/",                     "Open",       "GTEx REST API"),
-        ("HCA",         "Human Cell Atlas",                    "https://www.humancellatlas.org/",              "Open",       "HCA Data Portal API"),
-        ("dbGaP",       "Database of Genotypes & Phenotypes",  "https://www.ncbi.nlm.nih.gov/gap/",           "Controlled", "Entrez eSearch"),
-        ("EGA",         "European Genome-phenome Archive",     "https://ega-archive.org/",                    "Controlled", "EGA REST API"),
-        ("CELLxGENE",   "CZ CELLxGENE Discover",              "https://cellxgene.cziscience.com/",           "Open",       "CELLxGENE REST API"),
-        ("Zenodo",      "Zenodo research data repository",     "https://zenodo.org/",                         "Open",       "Zenodo REST API"),
+        ("GEO",          "NCBI Gene Expression Omnibus",         "Open",       "GEO query API (Entrez)"),
+        ("ArrayExpress", "EBI ArrayExpress / BioStudies",         "Open",       "BioStudies REST API"),
+        ("CELLxGENE",    "CZ CELLxGENE Discover",                "Open",       "CELLxGENE REST API"),
+        ("HCA",          "Human Cell Atlas Data Portal",          "Open",       "HCA Data Portal API"),
+        ("SCP",          "Single Cell Portal (Broad Institute)",  "Open",       "SCP REST API"),
+        ("Zenodo",       "Zenodo research data repository",       "Open",       "Zenodo REST API"),
+        ("figshare",     "figshare open research platform",       "Open",       "figshare REST API"),
+        ("dbGaP",        "Database of Genotypes & Phenotypes",    "Controlled", "Entrez eSearch"),
+        ("EGA",          "European Genome-phenome Archive",       "Controlled", "EGA REST API"),
     ]
-
-    db_df = pd.DataFrame(db_table, columns=["Short Name", "Full Name", "URL", "Access", "API Method"])
+    db_df = pd.DataFrame(db_table, columns=["Database", "Full Name", "Access", "API Method"])
 
     def _style_access(val):
         if val == "Controlled":
-            return "color: #E53935; font-weight: bold;"
-        return "color: #2E7D32; font-weight: bold;"
+            return "color:#E53935;font-weight:700"
+        return "color:#2E7D32;font-weight:700"
 
-    styled_db = db_df.style.applymap(_style_access, subset=["Access"])
-    st.dataframe(styled_db, use_container_width=True, hide_index=True)
-
-    st.markdown(
-        """
-        ---
-        ### API Notes
-
-        - **GEO**: Use `Entrez.esearch(db="gds", term=query)` followed by `Entrez.esummary` for metadata.
-        - **ArrayExpress / BioStudies**: `GET https://www.ebi.ac.uk/biostudies/api/v1/search?query=...`
-        - **CELLxGENE**: `GET https://api.cellxgene.cziscience.com/curation/v1/collections`
-        - **dbGaP**: Metadata via Entrez; controlled data requires approved application + dbGaP key.
-        - **EGA**: Metadata via `GET https://ega-archive.org/metadata/v2/datasets`; access requires DAC approval.
-        """
+    st.dataframe(
+        db_df.style.applymap(_style_access, subset=["Access"]),
+        use_container_width=True,
+        hide_index=True,
     )
+
+    st.markdown("""
+<div class="prose">
+
+<h3>API Notes</h3>
+<ul>
+<li><strong>GEO</strong>: <code>Entrez.esearch(db="gds", term=query)</code> + <code>Entrez.esummary</code></li>
+<li><strong>ArrayExpress</strong>: <code>GET https://www.ebi.ac.uk/biostudies/api/v1/search?query=…</code></li>
+<li><strong>CELLxGENE</strong>: <code>GET https://api.cellxgene.cziscience.com/curation/v1/collections</code></li>
+<li><strong>HCA</strong>: HCA Data Portal REST API with optional token authentication</li>
+<li><strong>SCP</strong>: Single Cell Portal API (Broad Institute)</li>
+<li><strong>Zenodo</strong>: <code>GET https://zenodo.org/api/records?q=…</code></li>
+<li><strong>figshare</strong>: <code>GET https://api.figshare.com/v2/articles?search_for=…</code></li>
+<li><strong>dbGaP</strong>: Metadata via Entrez; controlled data requires approved application + dbGaP key.</li>
+<li><strong>EGA</strong>: Metadata via <code>GET https://ega-archive.org/metadata/v2/datasets</code>; access requires DAC approval.</li>
+</ul>
+
+</div>
+""", unsafe_allow_html=True)
 
 # ===========================================================================
 # Tab 5 — Search Terms
 # ===========================================================================
 with tab5:
-    st.markdown(
-        """
-        ## Search Terms Used in Database Queries
+    st.markdown("""
+<div class="prose">
 
-        ### Tissue / Anatomy Terms
-        ```
-        endometrium
-        endometrial
-        uterine lining
-        uterine endometrium
-        endometrial stroma
-        endometrial epithelium
-        endometrial glands
-        decidua
-        ```
+<h2>Search Terms Used in Database Queries</h2>
 
-        ### Modality Terms
-        ```
-        single-cell RNA-seq
-        scRNA-seq
-        single cell transcriptomics
-        bulk RNA-seq
-        RNA sequencing
-        spatial transcriptomics
-        10x Visium
-        MERFISH
-        seqFISH
-        spatial proteomics
-        CODEX
-        CyCIF
-        IMC (imaging mass cytometry)
-        CITE-seq
-        ```
+<h3>Tissue / Anatomy Terms</h3>
+<pre><code>endometrium
+endometrial
+uterine lining
+uterine endometrium
+endometrial stroma
+endometrial epithelium
+endometrial glands
+decidua</code></pre>
 
-        ### Temporal / Cycle Phase Terms
-        ```
-        menstrual cycle
-        window of implantation
-        WOI
-        LH surge
-        luteal phase
-        proliferative phase
-        secretory phase
-        mid-secretory
-        peri-implantation
-        LH+0  LH+2  LH+5  LH+7  LH+9
-        P+x (progesterone-referenced staging)
-        ```
+<h3>Modality Terms</h3>
+<pre><code>single-cell RNA-seq
+scRNA-seq
+single cell transcriptomics
+bulk RNA-seq
+RNA sequencing
+spatial transcriptomics
+10x Visium
+MERFISH
+seqFISH
+spatial proteomics
+CODEX
+CyCIF
+IMC (imaging mass cytometry)
+CITE-seq</code></pre>
 
-        ### Disease / Condition Terms
-        ```
-        recurrent implantation failure  (RIF)
-        recurrent pregnancy loss        (RPL)
-        endometriosis
-        uterine fibroids
-        adenomyosis
-        polycystic ovary syndrome       (PCOS)
-        unexplained infertility
-        thin endometrium
-        hydrosalpinx
-        ```
+<h3>Temporal / Cycle Phase Terms</h3>
+<pre><code>menstrual cycle
+window of implantation
+WOI
+LH surge
+luteal phase
+proliferative phase
+secretory phase
+mid-secretory
+peri-implantation
+LH+0  LH+2  LH+5  LH+7  LH+9
+P+x (progesterone-referenced staging)</code></pre>
 
-        ### Exclusion Terms (applied to filter irrelevant results)
-        ```
-        endometrial cancer
-        endometrial carcinoma
-        uterine cancer
-        cervical cancer
-        ovarian cancer
-        mouse
-        murine
-        rat
-        in vitro
-        organoid        (unless explicitly paired with endometrial receptivity)
-        ```
+<h3>Disease / Condition Terms</h3>
+<pre><code>recurrent implantation failure  (RIF)
+recurrent pregnancy loss        (RPL)
+endometriosis
+uterine fibroids
+adenomyosis
+polycystic ovary syndrome       (PCOS)
+unexplained infertility
+thin endometrium
+hydrosalpinx</code></pre>
 
-        ### Boolean Query Template
+<h3>Exclusion Terms</h3>
+<pre><code>endometrial cancer
+endometrial carcinoma
+uterine cancer
+cervical cancer
+ovarian cancer
+mouse
+murine
+rat
+in vitro
+organoid  (unless paired with endometrial receptivity)</code></pre>
 
-        ```
-        (endometrium OR endometrial OR "uterine lining") AND
-        ("single-cell" OR "scRNA-seq" OR "bulk RNA" OR "spatial transcriptomics" OR "proteomics") AND
-        ("menstrual cycle" OR "implantation" OR "luteal" OR "secretory")
-        NOT ("cancer" OR "carcinoma" OR "mouse" OR "murine")
-        ```
-        """
-    )
+<h3>Boolean Query Template</h3>
+<pre><code>(endometrium OR endometrial OR "uterine lining") AND
+("single-cell" OR "scRNA-seq" OR "bulk RNA" OR "spatial transcriptomics" OR "proteomics") AND
+("menstrual cycle" OR "implantation" OR "luteal" OR "secretory")
+NOT ("cancer" OR "carcinoma" OR "mouse" OR "murine")</code></pre>
+
+</div>
+""", unsafe_allow_html=True)
 
 # ===========================================================================
 # Tab 6 — Controlled Access
 # ===========================================================================
 with tab6:
-    st.markdown(
-        """
-        ## Controlled Access Datasets
+    st.markdown("""
+<div class="prose">
 
-        Some datasets in this database require a formal data access application before
-        download. These are marked with a **Controlled Access** badge in the Search and
-        Download pages.
+<h2>Controlled Access Datasets</h2>
 
-        ---
+<p>Some datasets require a formal data access application before download.
+These are marked <strong>Controlled Access</strong> in the Search and Download pages.</p>
 
-        ### dbGaP (Database of Genotypes and Phenotypes)
+<h3>dbGaP (Database of Genotypes and Phenotypes)</h3>
+<p><em>Authority: NIH / NCBI</em></p>
+<ol>
+<li>Create an <a href="https://public.era.nih.gov/commons/">eRA Commons account</a>.</li>
+<li>Navigate to <a href="https://www.ncbi.nlm.nih.gov/gap/">dbGaP</a> and search for the accession (e.g. <code>phs001234</code>).</li>
+<li>Click <strong>Request Access</strong> and complete the Data Access Request (DAR) form.</li>
+<li>Attach IRB approval or exemption letter and list all investigators.</li>
+<li>Submit to the relevant Data Access Committee (DAC).</li>
+<li>Approval typically takes <strong>4–8 weeks</strong>.</li>
+<li>Once approved, download via:<br>
+<pre><code>prefetch phs001234 --output-directory ./downloads/</code></pre></li>
+</ol>
 
-        **Authority**: NIH / NCBI
+<h3>EGA (European Genome-phenome Archive)</h3>
+<p><em>Authority: EMBL-EBI / CRG</em></p>
+<ol>
+<li>Register at <a href="https://ega-archive.org/">EGA</a>.</li>
+<li>Search for the EGAD or EGAN accession and click <strong>Request Access</strong>.</li>
+<li>Submit your data access agreement (DAA) signed by your institution.</li>
+<li>Once approved, download using the EGA download client:<br>
+<pre><code>pip install pyega3
+pyega3 -cf credentials.json fetch EGAD00001000001</code></pre></li>
+</ol>
 
-        1. Create an [eRA Commons account](https://public.era.nih.gov/commons/) if you
-           do not already have one.
-        2. Navigate to [dbGaP](https://www.ncbi.nlm.nih.gov/gap/) and search for the
-           accession (e.g. `phs001234`).
-        3. Click **Request Access** on the study page.
-        4. Complete the **Data Access Request (DAR)** form:
-           - Specify intended research use
-           - Attach IRB approval or exemption letter
-           - List all investigators who will access the data
-        5. Submit to the relevant **Data Access Committee (DAC)**.
-        6. Approval typically takes **4–8 weeks**.
-        7. Once approved, download via:
-           ```bash
-           prefetch phs001234 --output-directory ./downloads/
-           # or via the dbGaP download toolkit
-           ```
+<h3>Best Practices</h3>
+<ul>
+<li>Keep a copy of your approval letter — required for data transfer agreements.</li>
+<li>Data should remain on institutional compute infrastructure.</li>
+<li>Do <strong>not</strong> share controlled-access data with unapproved collaborators.</li>
+<li>Cite the dataset and original study in any publication using these data.</li>
+</ul>
 
-        ---
+</div>
+""", unsafe_allow_html=True)
 
-        ### EGA (European Genome-phenome Archive)
-
-        **Authority**: EMBL-EBI / CRG
-
-        1. Register at [EGA](https://ega-archive.org/).
-        2. Search for the EGAD or EGAN accession.
-        3. Click **Request Access** — this contacts the **Data Access Committee (DAC)**
-           for the specific study.
-        4. Submit your data access agreement (DAA) signed by your institution.
-        5. Once approved, download using the **EGA download client**:
-           ```bash
-           pip install pyega3
-           pyega3 -cf credentials.json fetch EGAD00001000001
-           ```
-
-        ---
-
-        ### Tips
-
-        - Keep a copy of your approval letter — required for data transfer agreements.
-        - Data should remain on institutional compute infrastructure.
-        - Do **not** share controlled-access data with unapproved collaborators.
-        - Cite the dataset and original study in any publication using these data.
-
-        ---
-        """
-    )
-
+# ---------------------------------------------------------------------------
+# Footer
+# ---------------------------------------------------------------------------
+st.markdown(
+    '<div style="margin-top:2rem;height:1px;background:#e5e7eb"></div>',
+    unsafe_allow_html=True,
+)
 st.info(
     "For bugs, missing datasets, or scoring questions, contact the Hickey Lab "
     "(Duke University, Department of Cell Biology). "

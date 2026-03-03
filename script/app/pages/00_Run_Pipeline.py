@@ -1,11 +1,5 @@
 """
 Run Pipeline — trigger the scraper and refresh data from within the app.
-
-On Streamlit Cloud: pipeline runs in-process and saves outputs to the
-repo's output/ directory. Files persist for the session; to make them
-permanent, commit and push from your local machine.
-
-On local deployment: same behaviour, but files persist to disk.
 """
 
 from __future__ import annotations
@@ -13,8 +7,8 @@ from __future__ import annotations
 import subprocess
 import sys
 import time
-from pathlib import Path
 from datetime import datetime
+from pathlib import Path
 
 import streamlit as st
 
@@ -29,10 +23,10 @@ st.set_page_config(
 )
 
 # ---------------------------------------------------------------------------
-# Auth guard
+# Auth
 # ---------------------------------------------------------------------------
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from auth import check_password  # noqa: E402
+from auth import check_password
 
 if not check_password():
     st.stop()
@@ -46,76 +40,135 @@ SCRIPT    = REPO_ROOT / "script" / "run_pipeline.py"
 OUTPUT    = REPO_ROOT / "output"
 LOG_FILE  = OUTPUT / "scrape_log.txt"
 
-DUKE_BLUE = "#00539B"
-DUKE_NAVY = "#012169"
+# ---------------------------------------------------------------------------
+# Global CSS
+# ---------------------------------------------------------------------------
+st.markdown("""
+<style>
+.stApp,[data-testid="stAppViewContainer"]{background:#fff}
+[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
+[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
+.block-container{padding-top:2rem;padding-bottom:3rem;max-width:1100px}
+hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.25rem 0!important}
+.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif}
+.stButton>button[kind="primary"]{background:#00539B;border:none}
+.section-label{font-family:Arial,sans-serif;font-size:0.6rem;font-weight:700;
+               letter-spacing:0.12em;text-transform:uppercase;color:#9ca3af;
+               margin-bottom:0.7rem;padding-bottom:0.35rem;border-bottom:1px solid #e5e7eb}
+.status-card{background:#fff;border:1px solid #e5e7eb;border-top:3px solid #00539B;
+             border-radius:2px;padding:1.1rem 1rem;font-family:Arial,sans-serif}
+.status-num{font-size:1.9rem;font-weight:700;color:#012169;line-height:1}
+.status-lbl{font-size:0.68rem;color:#9ca3af;margin-top:0.35rem;
+            letter-spacing:0.06em;text-transform:uppercase}
+</style>
+""", unsafe_allow_html=True)
 
 # ---------------------------------------------------------------------------
 # Page header
 # ---------------------------------------------------------------------------
-st.title("⚙️ Run Pipeline")
+st.markdown("""
+<p style="font-family:Arial,sans-serif;font-size:1.65rem;font-weight:700;
+          color:#012169;letter-spacing:-0.02em;margin-bottom:0">
+    Run Pipeline
+</p>
+<p style="font-family:Arial,sans-serif;font-size:0.875rem;color:#6b7280;margin-top:0.25rem">
+    Scrape public repositories, score datasets, and refresh the Search and Statistics pages.
+</p>
+""", unsafe_allow_html=True)
 st.markdown(
-    "Scrape open-access databases for endometrial receptivity datasets, "
-    "score them, and refresh the Search and Statistics pages."
+    '<div style="height:1px;background:#e5e7eb;margin:0.75rem 0 1.5rem 0"></div>',
+    unsafe_allow_html=True,
 )
 
 st.info(
-    "**Streamlit Cloud note:** Results are saved for this session. "
-    "To make them permanent, run the pipeline locally and push `output/` files to GitHub.",
+    "**Streamlit Cloud:** Results persist for this session. "
+    "To make them permanent, run the pipeline locally and push `output/` to GitHub.",
     icon="ℹ️",
 )
-
-st.divider()
 
 # ---------------------------------------------------------------------------
 # Current data status
 # ---------------------------------------------------------------------------
-st.subheader("Current Data Status")
+st.markdown('<div class="section-label">Current Data Status</div>', unsafe_allow_html=True)
 
 meta_path = OUTPUT / "metadata_master.csv"
 conf_path = OUTPUT / "confidence_scores.csv"
 
-col1, col2, col3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 
 if meta_path.exists():
     import pandas as pd
     df = pd.read_csv(meta_path)
-    col1.metric("Total Datasets", f"{len(df):,}")
-    if "confidence_tier" in df.columns:
-        gold = (df["confidence_tier"] == "GOLD").sum()
-        silver = (df["confidence_tier"] == "SILVER").sum()
-        col2.metric("GOLD", gold)
-        col3.metric("SILVER", silver)
-    last_mod = datetime.fromtimestamp(meta_path.stat().st_mtime)
-    st.caption(f"Last updated: {last_mod.strftime('%Y-%m-%d %H:%M')}")
-else:
-    col1.metric("Total Datasets", "—")
-    col2.metric("GOLD", "—")
-    col3.metric("SILVER", "—")
-    st.warning("No data yet — run the pipeline below.", icon="⚠️")
+    tier_col = next((c for c in df.columns if "tier" in c.lower()), None)
 
-st.divider()
+    c1.markdown(
+        f'<div class="status-card"><div class="status-num">{len(df):,}</div>'
+        f'<div class="status-lbl">Total Datasets</div></div>',
+        unsafe_allow_html=True,
+    )
+    if tier_col:
+        gold_n   = int((df[tier_col].str.upper() == "GOLD").sum())
+        silver_n = int((df[tier_col].str.upper() == "SILVER").sum())
+        bronze_n = int((df[tier_col].str.upper() == "BRONZE").sum())
+        c2.markdown(
+            f'<div class="status-card" style="border-top-color:#B5A369">'
+            f'<div class="status-num">{gold_n:,}</div>'
+            f'<div class="status-lbl">Gold</div></div>',
+            unsafe_allow_html=True,
+        )
+        c3.markdown(
+            f'<div class="status-card" style="border-top-color:#9E9E9E">'
+            f'<div class="status-num">{silver_n:,}</div>'
+            f'<div class="status-lbl">Silver</div></div>',
+            unsafe_allow_html=True,
+        )
+        c4.markdown(
+            f'<div class="status-card" style="border-top-color:#CD7F32">'
+            f'<div class="status-num">{bronze_n:,}</div>'
+            f'<div class="status-lbl">Bronze</div></div>',
+            unsafe_allow_html=True,
+        )
+    last_mod = datetime.fromtimestamp(meta_path.stat().st_mtime)
+    st.markdown(
+        f'<p style="font-family:Arial,sans-serif;font-size:0.72rem;color:#9ca3af;'
+        f'margin-top:0.5rem">Last updated: {last_mod.strftime("%Y-%m-%d %H:%M")}</p>',
+        unsafe_allow_html=True,
+    )
+else:
+    for col in (c1, c2, c3, c4):
+        col.markdown(
+            '<div class="status-card"><div class="status-num">—</div>'
+            '<div class="status-lbl">No data</div></div>',
+            unsafe_allow_html=True,
+        )
+    st.warning("No output files found. Run the pipeline below.", icon="⚠️")
+
+st.markdown(
+    '<div style="height:1px;background:#e5e7eb;margin:1.25rem 0"></div>',
+    unsafe_allow_html=True,
+)
 
 # ---------------------------------------------------------------------------
 # Pipeline configuration
 # ---------------------------------------------------------------------------
-st.subheader("Pipeline Configuration")
+st.markdown('<div class="section-label">Pipeline Configuration</div>', unsafe_allow_html=True)
 
-c1, c2 = st.columns(2)
+cfg1, cfg2 = st.columns(2)
 
-with c1:
+with cfg1:
     databases = st.multiselect(
         "Databases to scrape",
         options=["geo", "arrayexpress", "cellxgene", "hca", "scp", "zenodo", "figshare"],
         default=["geo", "arrayexpress", "zenodo", "figshare"],
-        help="Select which databases to query. GEO + ArrayExpress cover most datasets.",
+        help="GEO + ArrayExpress cover the majority of datasets.",
     )
     min_score = st.slider(
         "Minimum confidence score",
-        min_value=0, max_value=80, value=40, step=5,
-        help="Datasets below this score are excluded from output.",
+        min_value=0, max_value=80, value=0, step=5,
+        help="Datasets below this threshold are excluded from output.",
     )
 
-with c2:
+with cfg2:
     resume = st.checkbox(
         "Resume (skip already-scraped accessions)",
         value=True,
@@ -123,12 +176,15 @@ with c2:
     )
     verbose = st.checkbox("Verbose logging", value=True)
 
-st.divider()
+st.markdown(
+    '<div style="height:1px;background:#e5e7eb;margin:1.25rem 0"></div>',
+    unsafe_allow_html=True,
+)
 
 # ---------------------------------------------------------------------------
 # Run button
 # ---------------------------------------------------------------------------
-if st.button("▶ Run Pipeline Now", type="primary", use_container_width=False):
+if st.button("Run Pipeline", type="primary"):
     if not databases:
         st.error("Select at least one database.")
         st.stop()
@@ -146,11 +202,15 @@ if st.button("▶ Run Pipeline Now", type="primary", use_container_width=False):
     if verbose:
         cmd.append("--verbose")
 
-    st.info(f"Running: `{' '.join(cmd)}`", icon="🚀")
+    st.markdown(
+        f'<div style="font-family:monospace;font-size:0.75rem;color:#6b7280;'
+        f'background:#f8f9fa;border:1px solid #e5e7eb;border-radius:2px;'
+        f'padding:0.5rem 0.75rem;margin-bottom:0.75rem">{" ".join(cmd)}</div>',
+        unsafe_allow_html=True,
+    )
 
-    log_box = st.empty()
-    progress_bar = st.progress(0, text="Starting scrape…")
-
+    log_box    = st.empty()
+    prog_bar   = st.progress(0, text="Starting…")
     log_lines: list[str] = []
     start_time = time.time()
 
@@ -164,57 +224,70 @@ if st.button("▶ Run Pipeline Now", type="primary", use_container_width=False):
             cwd=str(REPO_ROOT),
         )
 
-        # Stream output line by line
         for line in iter(proc.stdout.readline, ""):
             line = line.rstrip()
             if not line:
                 continue
             log_lines.append(line)
-            # Keep last 50 lines in display
-            display = "\n".join(log_lines[-50:])
-            log_box.code(display, language="bash")
-
-            # Progress heuristic: count "Scraped" lines
-            scraped = sum(1 for l in log_lines if "scraped" in l.lower() or "found" in l.lower())
-            progress_bar.progress(min(scraped / max(len(databases) * 20, 1), 0.95),
-                                  text=f"Scraping… ({scraped} records found so far)")
+            log_box.code("\n".join(log_lines[-50:]), language="bash")
+            scraped = sum(
+                1 for ln in log_lines
+                if "scraped" in ln.lower() or "found" in ln.lower()
+            )
+            prog_bar.progress(
+                min(scraped / max(len(databases) * 20, 1), 0.95),
+                text=f"Scraping… ({scraped} records found)",
+            )
 
         proc.wait()
         elapsed = time.time() - start_time
 
         if proc.returncode == 0:
-            progress_bar.progress(1.0, text="Complete!")
+            prog_bar.progress(1.0, text="Complete")
             st.success(
-                f"Pipeline finished in {elapsed:.0f}s. "
-                "Refresh the **Search** and **Statistics** pages to see results.",
+                f"Pipeline finished in {elapsed:.0f} s. "
+                "Refresh **Search** and **Statistics** to see updated results.",
                 icon="✅",
             )
-            # Clear Streamlit data cache so pages reload fresh data
             st.cache_data.clear()
         else:
-            st.error(f"Pipeline exited with code {proc.returncode}. Check log above.", icon="❌")
+            st.error(
+                f"Pipeline exited with code {proc.returncode}. Review the log above.",
+                icon="❌",
+            )
 
     except FileNotFoundError:
         st.error(
-            f"Could not find `{SCRIPT}`. "
-            "Make sure you are running the app from the repo root.",
+            f"Script not found: `{SCRIPT}`. "
+            "Ensure the app is run from the repository root.",
             icon="❌",
         )
     except Exception as exc:
         st.error(f"Unexpected error: {exc}", icon="❌")
 
-st.divider()
+st.markdown(
+    '<div style="height:1px;background:#e5e7eb;margin:1.25rem 0"></div>',
+    unsafe_allow_html=True,
+)
 
 # ---------------------------------------------------------------------------
 # Log viewer
 # ---------------------------------------------------------------------------
-st.subheader("Scrape Log")
+st.markdown('<div class="section-label">Scrape Log</div>', unsafe_allow_html=True)
 
 if LOG_FILE.exists():
     with open(LOG_FILE, "r", encoding="utf-8", errors="replace") as f:
         log_content = f.read()
     lines = log_content.strip().splitlines()
-    st.caption(f"{len(lines)} log lines — showing last 100")
+    st.markdown(
+        f'<p style="font-family:Arial,sans-serif;font-size:0.72rem;color:#9ca3af">'
+        f'{len(lines):,} lines — showing last 100</p>',
+        unsafe_allow_html=True,
+    )
     st.code("\n".join(lines[-100:]), language="bash")
 else:
-    st.caption("No log file yet. Run the pipeline above.")
+    st.markdown(
+        '<p style="font-family:Arial,sans-serif;font-size:0.85rem;color:#9ca3af">'
+        'No log file yet. Run the pipeline above.</p>',
+        unsafe_allow_html=True,
+    )
