@@ -460,7 +460,7 @@ class ConfidenceScorer:
         supp_files: list[str] = _safe_list(dataset.get("supplemental_files"))
 
         # +10 fully public with download URL
-        if controlled is False and download_url is not None:
+        if controlled is not True and download_url is not None:
             breakdown["publicly_downloadable"] = 10.0
             score += 10.0
         else:

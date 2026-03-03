@@ -183,9 +183,9 @@ def _build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--min-score",
         type=float,
-        default=40.0,
+        default=0.0,
         metavar="FLOAT",
-        help="Minimum confidence score (0-100) to include in output [default: 40]",
+        help="Minimum confidence score (0-100) to include in output [default: 0]",
     )
     parser.add_argument(
         "--output-dir",
@@ -500,8 +500,8 @@ def _write_outputs(
     try:
         import importlib
         writers_mod = importlib.import_module("output.writers")
-        writers_mod.write_metadata_master(records, str(output_dir / "metadata_master.csv"))
-        writers_mod.write_confidence_scores(records, str(output_dir / "confidence_scores.csv"))
+        writers_mod.write_metadata_master(records, records, str(output_dir))
+        writers_mod.write_confidence_scores(records, str(output_dir))
         log.info("Wrote metadata_master.csv and confidence_scores.csv")
     except Exception as exc:
         log.warning("output.writers unavailable or failed: %s", exc)
@@ -510,7 +510,9 @@ def _write_outputs(
     try:
         import importlib
         ps_mod = importlib.import_module("output.paper_summary")
-        ps_mod.generate(records, str(output_dir))
+        summaries = ps_mod.generate_paper_summaries(records, records)
+        ps_mod.write_paper_summaries_json(summaries, str(output_dir))
+        ps_mod.write_paper_summaries_md(summaries, str(output_dir))
         log.info("Wrote paper_summaries.json + .md")
     except Exception as exc:
         log.warning("output.paper_summary unavailable or failed: %s", exc)
@@ -518,8 +520,12 @@ def _write_outputs(
     # --- output.report ---
     try:
         import importlib
+        from datetime import datetime, timezone
         report_mod = importlib.import_module("output.report")
-        report_mod.generate(records, str(output_dir / "pipeline_report.html"))
+        report_mod.generate_pipeline_report(
+            records, records, str(output_dir),
+            datetime.now(timezone.utc).isoformat()
+        )
         log.info("Wrote pipeline_report.html")
     except Exception as exc:
         log.warning("output.report unavailable or failed: %s", exc)
