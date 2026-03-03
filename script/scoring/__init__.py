@@ -17,5 +17,12 @@ Usage
 
 from scoring.confidence import ConfidenceScorer
 from scoring.tiers import classify_tier
+from scoring.ai_extractor import extract_metadata, batch_enrich, enrich_record_live
 
-__all__ = ["ConfidenceScorer", "classify_tier"]
+__all__ = [
+    "ConfidenceScorer",
+    "classify_tier",
+    "extract_metadata",
+    "batch_enrich",
+    "enrich_record_live",
+]

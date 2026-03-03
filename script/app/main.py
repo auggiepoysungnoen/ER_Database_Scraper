@@ -18,7 +18,7 @@ from auth import check_password
 # Page config (must be first Streamlit call)
 # ---------------------------------------------------------------------------
 st.set_page_config(
-    page_title="Endometrial Receptivity Database | Hickey Lab",
+    page_title="Open-Access Genomics Search | Hickey Lab",
     layout="wide",
     page_icon="🔬",
     initial_sidebar_state="expanded",
@@ -110,7 +110,7 @@ with st.sidebar:
             HICKEY LAB · DUKE UNIVERSITY
         </div>
         <div style="font-size:1rem;font-weight:700;color:#012169;line-height:1.25">
-            Endometrial<br>Receptivity DB
+            Genomics Dataset<br>Search Engine
         </div>
         <div style="margin-top:0.85rem;height:1px;background:#e5e7eb"></div>
     </div>
@@ -201,8 +201,8 @@ else:
 # Page header
 # ---------------------------------------------------------------------------
 st.markdown("""
-<p class="page-title">Endometrial Receptivity Database</p>
-<p class="page-sub">Hickey Lab &nbsp;·&nbsp; Duke University &nbsp;·&nbsp; Aim 01: Database Regeneration</p>
+<p class="page-title">Open-Access Genomics Dataset Search</p>
+<p class="page-sub">Hickey Lab &nbsp;·&nbsp; Duke University &nbsp;·&nbsp; Search, score, and export any open-access multi-omic dataset</p>
 """, unsafe_allow_html=True)
 st.markdown(
     '<div style="height:1px;background:#e5e7eb;margin:1rem 0 1.75rem 0"></div>',
@@ -249,16 +249,18 @@ col_txt, col_score = st.columns([3, 2], gap="large")
 with col_txt:
     st.markdown("""
     <div style="font-family:Arial,sans-serif;font-size:0.875rem;color:#374151;line-height:1.75">
-    <p>This resource aggregates multi-omic datasets profiling the human endometrium across
-    the menstrual cycle, with particular focus on the <strong>Window of Implantation (WOI)</strong>
-    — the narrow peri-implantation window (LH+5 to LH+9) during which the endometrium becomes
-    receptive to embryo implantation.</p>
-    <p>Datasets are catalogued from GEO, ArrayExpress, CELLxGENE, HCA, Single Cell Portal,
-    Zenodo, and figshare. Each dataset is independently scored on a
-    <strong>0–100 composite confidence scale</strong> across five quality dimensions.</p>
+    <p>This is an open-access search engine for multi-omic genomics datasets spanning any tissue
+    type, disease group, or experimental modality. Datasets are automatically catalogued from
+    major public repositories and enriched with AI-extracted metadata to power precise filtering
+    and reproducible downstream analyses.</p>
+    <p>Datasets are indexed from GEO, ArrayExpress, CELLxGENE, HCA, Single Cell Portal, Zenodo,
+    and figshare. Each dataset is independently scored on a
+    <strong>0–100 composite confidence scale</strong> across five quality dimensions.
+    Gemini AI extraction enriches records with timepoints, tissue sites, disease groups,
+    and protocol flags directly from abstracts.</p>
     <p style="margin-bottom:0">Use the <strong>Search</strong> page to filter by modality, tissue collection
-    site, LH timepoint, disease group, or free-text query. Use the <strong>Download Manager</strong>
-    to generate batch wget scripts for GOLD and SILVER datasets.</p>
+    site, disease group, or free-text query. Use the <strong>Download Manager</strong>
+    to generate batch wget or Python scripts for GOLD and SILVER datasets.</p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -337,6 +339,6 @@ st.markdown(
 st.markdown("""
 <div style="font-family:Arial,sans-serif;font-size:0.7rem;color:#9ca3af;
             text-align:center;padding:0.85rem 0">
-    Hickey Lab · Duke University · Endometrial Receptivity Aim 01
+    Hickey Lab · Duke University · Open-Access Genomics Search Engine
 </div>
 """, unsafe_allow_html=True)

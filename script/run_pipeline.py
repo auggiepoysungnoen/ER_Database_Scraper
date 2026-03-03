@@ -21,6 +21,9 @@ Options
   --download            If set, auto-download GOLD+SILVER datasets after scoring
   --workers INT         Parallel download workers [default: 4]
   --ncbi-key TEXT       NCBI API key (or set NCBI_API_KEY env var)
+  --gemini-key TEXT     Gemini API key for AI metadata extraction (or set GEMINI_API_KEY env var)
+  --no-ai               Disable Gemini AI enrichment (faster, lower quality scores)
+  --search-terms TEXT   Comma-separated tissue/topic terms to search [default: endometrial terms]
   --dry-run             Scrape and score but do not write output files
   --resume              Skip already-scraped accessions (load existing registry)
   --verbose             Verbose logging
@@ -216,6 +219,26 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         metavar="TEXT",
         help="NCBI API key (overrides NCBI_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--gemini-key",
+        default=None,
+        metavar="TEXT",
+        help="Gemini API key for AI metadata enrichment (overrides GEMINI_API_KEY env var)",
+    )
+    parser.add_argument(
+        "--no-ai",
+        action="store_true",
+        help="Disable Gemini AI enrichment (faster runs, lower confidence score quality)",
+    )
+    parser.add_argument(
+        "--search-terms",
+        default=None,
+        metavar="TEXT",
+        help=(
+            "Comma-separated tissue/topic terms overriding the built-in TISSUE_TERMS list. "
+            "Example: 'placenta,trophoblast,decidua'"
+        ),
     )
     parser.add_argument(
         "--dry-run",
@@ -624,6 +647,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     # --- NCBI API key ---
     ncbi_key = args.ncbi_key or os.environ.get("NCBI_API_KEY")
 
+    # --- Gemini API key ---
+    gemini_key = args.gemini_key or os.environ.get("GEMINI_API_KEY", "")
+
+    # --- Override search terms if provided via CLI ---
+    if getattr(args, "search_terms", None):
+        global TISSUE_TERMS
+        TISSUE_TERMS = [t.strip() for t in args.search_terms.split(",") if t.strip()]
+        log.info("Custom search terms: %s", TISSUE_TERMS)
+
     # --- Load existing registry (resume mode) ---
     existing: dict[str, dict] = {}
     if args.resume:
@@ -677,6 +709,21 @@ def main(argv: Optional[list[str]] = None) -> int:
     )
 
     total_scraped = len(deduped)
+
+    # --- AI metadata enrichment (Gemini) ---
+    if not getattr(args, "no_ai", False) and gemini_key:
+        log.info("Starting Gemini AI enrichment for %d records …", len(deduped))
+        try:
+            import importlib
+            ai_mod = importlib.import_module("scoring.ai_extractor")
+            deduped = ai_mod.batch_enrich(deduped, gemini_key, max_workers=8)
+            enriched_n = sum(1 for r in deduped if r.get("ai_enriched"))
+            log.info("AI enrichment complete: %d/%d records enriched",
+                     enriched_n, len(deduped))
+        except Exception as exc:
+            log.warning("AI enrichment unavailable or failed: %s — skipping", exc)
+    elif not getattr(args, "no_ai", False):
+        log.info("No Gemini API key — skipping AI enrichment (pass --gemini-key or set GEMINI_API_KEY)")
 
     # --- Score all datasets ---
     try:

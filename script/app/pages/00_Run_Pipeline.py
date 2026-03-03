@@ -163,6 +163,14 @@ with cfg1:
         min_value=0, max_value=80, value=0, step=5,
         help="Datasets below this threshold are excluded from output.",
     )
+    search_terms = st.text_input(
+        "Search terms (comma-separated)",
+        value="endometrium, endometrial, uterus, uterine, decidua",
+        help=(
+            "Tissue / topic terms used to build search queries. "
+            "Change to any tissue (e.g. 'placenta, trophoblast') to search other areas."
+        ),
+    )
 
 with cfg2:
     resume = st.checkbox(
@@ -171,6 +179,14 @@ with cfg2:
         help="Faster re-runs — only fetches new datasets.",
     )
     verbose = st.checkbox("Verbose logging", value=True)
+    enable_ai = st.checkbox(
+        "Enable Gemini AI enrichment",
+        value=True,
+        help=(
+            "Uses Gemini AI to extract LH timepoints, tissue sites, disease groups, "
+            "and protocol flags from abstracts — significantly improves confidence scores."
+        ),
+    )
 
 st.markdown(
     '<div style="height:1px;background:#e5e7eb;margin:1.25rem 0"></div>',
@@ -187,16 +203,29 @@ if st.button("Run Pipeline", type="primary"):
 
     OUTPUT.mkdir(parents=True, exist_ok=True)
 
+    # Read Gemini key from secrets (silently skip if not configured)
+    gemini_key = ""
+    try:
+        gemini_key = st.secrets.get("gemini", {}).get("api_key", "")
+    except Exception:
+        pass
+
     cmd = [
         sys.executable, str(SCRIPT),
         "--databases", ",".join(databases),
         "--min-score", str(min_score),
         "--output-dir", str(OUTPUT),
     ]
+    if search_terms.strip():
+        cmd += ["--search-terms", search_terms.strip()]
     if resume:
         cmd.append("--resume")
     if verbose:
         cmd.append("--verbose")
+    if enable_ai and gemini_key:
+        cmd += ["--gemini-key", gemini_key]
+    elif not enable_ai:
+        cmd.append("--no-ai")
 
     st.markdown(
         f'<div style="font-family:monospace;font-size:0.75rem;color:#6b7280;'

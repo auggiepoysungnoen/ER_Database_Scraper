@@ -43,6 +43,9 @@ markdown>=3.6
 # Graph / network
 networkx>=3.2.1
 
+# AI / LLM
+google-generativeai>=0.7.0
+
 # Utilities
 toml>=0.10.2
 python-dateutil>=2.9.0

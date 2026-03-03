@@ -183,6 +183,34 @@ if record is None:
     st.stop()
 
 # ---------------------------------------------------------------------------
+# Live Gemini enrichment (if record not yet AI-enriched)
+# ---------------------------------------------------------------------------
+ai_badge_html = ""
+if not record.get("ai_enriched"):
+    try:
+        gemini_key = st.secrets.get("gemini", {}).get("api_key", "")
+        if gemini_key:
+            import sys as _sys
+            _sys.path.insert(0, str(APP_DIR.parent))
+            from scoring.ai_extractor import enrich_record_live
+            with st.spinner("Enriching with Gemini AI…"):
+                record = enrich_record_live(record, gemini_key)
+            if record.get("ai_enriched"):
+                ai_badge_html = (
+                    '<span style="background:#EFF6FF;color:#1D4ED8;padding:2px 8px;'
+                    'border-radius:2px;font-size:0.72rem;font-weight:600;'
+                    'font-family:Arial,sans-serif;letter-spacing:0.03em">AI ENRICHED</span>'
+                )
+    except Exception:
+        pass  # silently skip if Gemini unavailable
+elif record.get("ai_enriched"):
+    ai_badge_html = (
+        '<span style="background:#EFF6FF;color:#1D4ED8;padding:2px 8px;'
+        'border-radius:2px;font-size:0.72rem;font-weight:600;'
+        'font-family:Arial,sans-serif;letter-spacing:0.03em">AI ENRICHED</span>'
+    )
+
+# ---------------------------------------------------------------------------
 # Dataset header
 # ---------------------------------------------------------------------------
 title = (
@@ -198,6 +226,7 @@ st.markdown(
         <span style="font-family:monospace;font-size:0.8rem;color:#6b7280;
                      background:#f3f4f6;padding:2px 6px;border-radius:2px">{accession}</span>
         &nbsp; {badge_html}
+        {("&nbsp; " + ai_badge_html) if ai_badge_html else ""}
     </div>
     <h2 style="font-family:Arial,sans-serif;font-size:1.25rem;font-weight:700;
                color:#012169;margin:0.4rem 0 1rem 0;line-height:1.3">{title}</h2>
