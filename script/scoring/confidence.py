@@ -665,3 +665,101 @@ class ConfidenceScorer:
         2
         """
         return [self.score(ds) for ds in datasets]
+
+
+# ---------------------------------------------------------------------------
+# Weighted scoring for Search Engine (user-adjustable dimension weights)
+# ---------------------------------------------------------------------------
+
+def score_with_weights(record: dict, weights: dict[str, float]) -> float:
+    """
+    Compute a confidence score using user-specified dimension weights.
+
+    Parameters
+    ----------
+    record : dict
+        Dataset record, expected to have AI-extracted fields including:
+        lh_timepoints, tissue_sites, disease_groups, has_protocol,
+        has_qc_metrics, has_raw_data, n_patients, n_samples,
+        relevance_score (0-100), journal_if_estimate (0-100),
+        download_url, controlled_access, doi, modality, peer_reviewed.
+    weights : dict[str, float]
+        Keys: journal_if, lh_timepoints, tissue_site, relevance,
+              data_completeness, accessibility.
+        Values: raw weights (will be normalised to sum=1 internally).
+        Missing keys default to 0.
+
+    Returns
+    -------
+    float
+        Weighted confidence score clamped to [0, 100].
+    """
+    # ── Normalise weights ──────────────────────────────────────────────────
+    keys = ("journal_if", "lh_timepoints", "tissue_site",
+            "relevance", "data_completeness", "accessibility")
+    raw_w = {k: float(weights.get(k, 0)) for k in keys}
+    total_w = sum(raw_w.values())
+    if total_w <= 0:
+        total_w = 1.0
+    norm = {k: v / total_w for k, v in raw_w.items()}
+
+    # ── Component scores (each normalised 0–100 before weighting) ─────────
+
+    # 1. Journal IF reliability (0–100 from AI estimate)
+    ji = float(record.get("journal_if_estimate") or 0)
+    ji = max(0.0, min(100.0, ji))
+
+    # 2. LH timepoint availability (0–100)
+    lh_tps = record.get("lh_timepoints") or []
+    if isinstance(lh_tps, list):
+        n_tp = len(set(lh_tps))
+        woi = {"LH+5", "LH+6", "LH+7", "LH+8", "LH+9"}
+        has_woi = bool(set(t.strip().upper().replace(" ", "") for t in lh_tps) & woi)
+        lh_score = min(n_tp * 8.0, 60.0) + (40.0 if has_woi else 0.0)
+    else:
+        lh_score = 0.0
+    lh_score = max(0.0, min(100.0, lh_score))
+
+    # 3. Tissue site specificity (0–100)
+    tissue = record.get("tissue_sites") or []
+    n_tissue = len(tissue) if isinstance(tissue, list) else 0
+    tissue_score = min(float(n_tissue) * 20.0, 100.0)
+
+    # 4. Relevance to search query (0–100, from Gemini)
+    rel = float(record.get("relevance_score") or 0)
+    rel = max(0.0, min(100.0, rel))
+
+    # 5. Data completeness / protocol metadata (0–100)
+    flags = {
+        "has_raw_data":    record.get("has_raw_data") or record.get("raw_data_available"),
+        "has_qc_metrics":  record.get("has_qc_metrics"),
+        "has_protocol":    record.get("has_protocol") or record.get("cell_isolation"),
+        "has_n_patients":  (record.get("n_patients") or 0) > 0,
+        "has_n_samples":   (record.get("n_samples") or 0) > 0,
+    }
+    completeness = sum(25.0 for k, v in flags.items() if v) * (4.0 / 5.0)
+    completeness = max(0.0, min(100.0, completeness))
+
+    # 6. Data accessibility (0–100)
+    accessible = (
+        not record.get("controlled_access")
+        and bool(record.get("download_url") or record.get("url"))
+    )
+    has_doi = bool(record.get("doi"))
+    accessibility = (60.0 if accessible else 0.0) + (40.0 if has_doi else 0.0)
+
+    # ── Weighted sum ──────────────────────────────────────────────────────
+    score = (
+        norm["journal_if"]       * ji
+        + norm["lh_timepoints"]  * lh_score
+        + norm["tissue_site"]    * tissue_score
+        + norm["relevance"]      * rel
+        + norm["data_completeness"] * completeness
+        + norm["accessibility"]  * accessibility
+    )
+
+    # Preprint penalty
+    if _safe_str(record.get("peer_reviewed")).lower() == "preprint":
+        score *= 0.85
+
+    return round(max(0.0, min(100.0, score)), 2)

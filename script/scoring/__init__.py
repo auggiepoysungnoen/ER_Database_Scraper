@@ -15,14 +15,23 @@ Usage
     tier   = classify_tier(result["final_CS"])
 """
 
-from scoring.confidence import ConfidenceScorer
+from scoring.confidence import ConfidenceScorer, score_with_weights
 from scoring.tiers import classify_tier
-from scoring.ai_extractor import extract_metadata, batch_enrich, enrich_record_live
+from scoring.ai_extractor import (
+    extract_metadata,
+    batch_enrich,
+    enrich_record_live,
+    score_relevance,
+    extract_metadata_with_relevance,
+)
 
 __all__ = [
     "ConfidenceScorer",
     "classify_tier",
+    "score_with_weights",
     "extract_metadata",
     "batch_enrich",
     "enrich_record_live",
+    "score_relevance",
+    "extract_metadata_with_relevance",
 ]

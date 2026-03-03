@@ -124,6 +124,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
 
     st.page_link("main.py",                    label="Home",            icon="·")
+    st.page_link("pages/00_Search_Engine.py",  label="Search Engine",   icon="·")
     st.page_link("pages/01_Search.py",         label="Search Datasets", icon="·")
     st.page_link("pages/02_Dataset_Detail.py", label="Dataset Detail",  icon="·")
     st.page_link("pages/03_Download.py",       label="Downloads",       icon="·")
@@ -135,8 +136,9 @@ with st.sidebar:
     st.markdown("""
     <div style="font-size:0.72rem;color:#9ca3af;font-family:Arial,sans-serif;
                 line-height:1.6;margin-top:0.75rem">
-        Datasets catalogued from GEO, ArrayExpress, CELLxGENE, HCA, Zenodo,
-        and figshare. Each scored 0–100 across five quality dimensions.
+        Real-time search across GEO, ArrayExpress, CELLxGENE, HCA, Zenodo,
+        and figshare. Gemini AI enriches results and scores them on a
+        0–100 composite confidence scale.
     </div>
     """, unsafe_allow_html=True)
 
@@ -338,7 +340,8 @@ st.markdown(
 )
 st.markdown("""
 <div style="font-family:Arial,sans-serif;font-size:0.7rem;color:#9ca3af;
-            text-align:center;padding:0.85rem 0">
-    Hickey Lab · Duke University · Open-Access Genomics Search Engine
+            text-align:center;padding:0.85rem 0;line-height:1.8">
+    <strong style="color:#6b7280">Hickey Lab</strong> · Department of Biomedical Engineering · Duke University<br>
+    Built by Koravit (Auggie) Poysungnoen · Department of Biological Sciences &amp; Department of Financial Economics
 </div>
 """, unsafe_allow_html=True)

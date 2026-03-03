@@ -360,3 +360,149 @@ def enrich_record_live(record: dict, api_key: str) -> dict:
         return merged
 
     return record
+
+
+# ---------------------------------------------------------------------------
+# Search-query relevance scoring
+# ---------------------------------------------------------------------------
+
+_RELEVANCE_PROMPT = """\
+You are a biomedical data-curation assistant. Given a dataset title and abstract,
+score its relevance to a user's search query on a scale of 0-100, and also estimate
+the journal impact factor reliability.
+
+Return ONLY valid JSON (no markdown, no extra text):
+{
+  "relevance_score": 85,
+  "journal_name": "Nature Communications",
+  "journal_if_estimate": 88,
+  "full_text_available": true,
+  "machine_platform": "10x Genomics Chromium",
+  "reasoning": "1-2 sentence justification"
+}
+
+Rules:
+- relevance_score: 0 = completely irrelevant, 100 = perfect match to the query
+- journal_if_estimate: 0-100 scale where 100 = Nature/Cell/Science/NEJM,
+  80 = Nature sub-journals / high-impact specialty journals,
+  60 = solid mid-tier journals (PLOS Biology, Nucleic Acids Research),
+  40 = broad access journals (PLOS ONE, Scientific Reports),
+  20 = low-tier or predatory journals, 0 = preprint / no journal
+- full_text_available: true if paper likely has full text in PubMed Central or similar
+- machine_platform: sequencing/profiling platform inferred from abstract (null if unknown)
+- reasoning: brief explanation of the relevance score
+"""
+
+def score_relevance(
+    abstract: str,
+    title: str,
+    search_query: str,
+    api_key: str,
+    journal_name: str = "",
+) -> dict:
+    """
+    Score a dataset's relevance to a search query using Gemini.
+
+    Parameters
+    ----------
+    abstract : str
+        Dataset abstract.
+    title : str
+        Dataset title.
+    search_query : str
+        The user's natural-language search query.
+    api_key : str
+        Gemini API key.
+    journal_name : str, optional
+        Journal name if known.
+
+    Returns
+    -------
+    dict
+        Keys: relevance_score (0-100), journal_name, journal_if_estimate (0-100),
+        full_text_available (bool), machine_platform (str), reasoning (str).
+        Returns zeros on failure.
+    """
+    _DEFAULT = {
+        "relevance_score": 0,
+        "journal_name": journal_name or "",
+        "journal_if_estimate": 0,
+        "full_text_available": False,
+        "machine_platform": None,
+        "reasoning": "",
+    }
+
+    if not api_key or not (abstract or title):
+        return _DEFAULT
+
+    prompt = (
+        f"Search query: {search_query}\n\n"
+        f"Dataset title: {title or 'Unknown'}\n"
+        f"Journal: {journal_name or 'Unknown'}\n"
+        f"Abstract: {(abstract or '')[:3000]}"
+    )
+
+    try:
+        import google.generativeai as genai  # type: ignore
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            system_instruction=_RELEVANCE_PROMPT,
+            generation_config={
+                "temperature": 0.0,
+                "max_output_tokens": 256,
+                "response_mime_type": "application/json",
+            },
+        )
+        response = model.generate_content(prompt)
+        raw = response.text.strip()
+        raw = re.sub(r"^```(?:json)?", "", raw, flags=re.IGNORECASE).strip()
+        raw = re.sub(r"```$", "", raw).strip()
+        data = json.loads(raw)
+        result = {**_DEFAULT, **data}
+        result["relevance_score"] = max(0, min(100, int(result.get("relevance_score") or 0)))
+        result["journal_if_estimate"] = max(0, min(100, int(result.get("journal_if_estimate") or 0)))
+        return result
+    except Exception as exc:
+        log.debug("score_relevance failed for query=%r: %s", search_query[:50], exc)
+        return _DEFAULT
+
+
+def extract_metadata_with_relevance(
+    accession: str,
+    title: str,
+    abstract: str,
+    search_query: str,
+    api_key: str,
+    journal_name: str = "",
+) -> dict:
+    """
+    Single Gemini call that extracts both structured metadata AND relevance scoring.
+
+    Combines extract_metadata() and score_relevance() into one API call
+    for efficiency when processing search results.
+
+    Parameters
+    ----------
+    accession : str
+        Dataset accession.
+    title : str
+        Dataset title.
+    abstract : str
+        Dataset abstract.
+    search_query : str
+        The user's search query (used for relevance scoring).
+    api_key : str
+        Gemini API key.
+    journal_name : str
+        Journal name if known.
+
+    Returns
+    -------
+    dict
+        Combined metadata + relevance fields. Merges extract_metadata() and
+        score_relevance() results.
+    """
+    meta = extract_metadata(accession, title, abstract, api_key)
+    rel = score_relevance(abstract, title, search_query, api_key, journal_name)
+    return {**meta, **rel}
