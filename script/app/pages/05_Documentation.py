@@ -34,22 +34,10 @@ if not check_password():
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-.stApp,[data-testid="stAppViewContainer"]{background:#fff}
-[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
-[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
 .block-container{padding-top:2rem;padding-bottom:3rem;max-width:1100px}
 hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.25rem 0!important}
-.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif}
+.stButton>button{border-radius:2px;font-weight:500}
 [data-testid="stDataFrame"]{border:1px solid #e5e7eb;border-radius:2px}
-/* Tab styling */
-[data-testid="stTabs"] [role="tab"]{
-    font-family:Arial,sans-serif;font-size:0.82rem;
-    font-weight:500;color:#6b7280;
-}
-[data-testid="stTabs"] [role="tab"][aria-selected="true"]{
-    color:#012169;font-weight:700;
-    border-bottom-color:#00539B!important;
-}
 /* Prose */
 .prose{font-family:Arial,sans-serif;font-size:0.875rem;color:#374151;line-height:1.75}
 .prose h2{font-size:1.15rem;font-weight:700;color:#012169;margin:1.5rem 0 0.5rem 0}

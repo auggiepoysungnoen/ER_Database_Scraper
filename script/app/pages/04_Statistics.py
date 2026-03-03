@@ -109,13 +109,10 @@ def _caption(text: str):
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-.stApp,[data-testid="stAppViewContainer"]{background:#fff}
-[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
-[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
 .block-container{padding-top:2rem;padding-bottom:3rem;max-width:1200px}
 hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1rem 0!important}
-.page-title{font-family:Arial,sans-serif;font-size:1.65rem;font-weight:700;
-            color:#012169;letter-spacing:-0.02em;margin-bottom:0}
+.page-title{font-size:1.65rem;font-weight:700;color:#012169;
+            letter-spacing:-0.02em;margin-bottom:0}
 </style>
 """, unsafe_allow_html=True)
 

@@ -60,17 +60,12 @@ if not check_password():
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-/* ── Background ── */
-.stApp,[data-testid="stAppViewContainer"]{background:#fff}
-[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
-[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
 /* ── Layout ── */
 .block-container{padding-top:2.5rem;padding-bottom:3rem;max-width:1140px}
 /* ── Dividers ── */
 hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.5rem 0!important}
 /* ── Buttons ── */
-.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif;letter-spacing:0.01em}
-.stButton>button[kind="primary"]{background:#00539B;border:none}
+.stButton>button{border-radius:2px;font-weight:500;letter-spacing:0.01em}
 /* ── Tables ── */
 [data-testid="stDataFrame"]{border:1px solid #e5e7eb;border-radius:2px}
 /* ── Cards ── */

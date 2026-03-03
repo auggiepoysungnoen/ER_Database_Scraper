@@ -70,13 +70,9 @@ TIER_BADGE = {
 # ---------------------------------------------------------------------------
 st.markdown("""
 <style>
-.stApp,[data-testid="stAppViewContainer"]{background:#fff}
-[data-testid="stHeader"]{background:#fff;border-bottom:1px solid #e5e7eb}
-[data-testid="stSidebar"]{background:#f9fafb!important;border-right:1px solid #e5e7eb}
 .block-container{padding-top:2rem;padding-bottom:3rem;max-width:1300px}
 hr{border:none!important;border-top:1px solid #e5e7eb!important;margin:1.25rem 0!important}
-.stButton>button{border-radius:2px;font-weight:500;font-family:Arial,sans-serif}
-.stButton>button[kind="primary"]{background:#00539B;border:none}
+.stButton>button{border-radius:2px;font-weight:500}
 [data-testid="stDataFrame"]{border:1px solid #e5e7eb;border-radius:2px}
 .page-title{font-family:Arial,sans-serif;font-size:1.65rem;font-weight:700;
             color:#012169;letter-spacing:-0.02em;margin-bottom:0}
