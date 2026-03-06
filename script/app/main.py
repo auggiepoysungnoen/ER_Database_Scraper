@@ -71,8 +71,6 @@ st.sidebar.page_link("pages/00_Search_Engine.py", label="Search Engine")
 st.sidebar.page_link("pages/01_Search.py", label="Browse Datasets")
 st.sidebar.page_link("pages/02_Dataset_Detail.py", label="Dataset Detail")
 st.sidebar.page_link("pages/03_Download.py", label="Downloads")
-st.sidebar.page_link("pages/04_Statistics.py", label="Statistics")
-st.sidebar.page_link("pages/05_Documentation.py", label="Documentation")
 
 # ---------------------------------------------------------------------------
 # Load data
