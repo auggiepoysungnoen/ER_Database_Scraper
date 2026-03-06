@@ -438,3 +438,13 @@ In-code documentation:
 ================================================================================
 END OF SPECIFICATION
 ================================================================================
+
+Use Ralph to redo these aspect: (perhaps restart again)
+1. address main page error, and this is the property of Hickey Lab, Biomedical Engineer at Duke University and build by Koravit (Auggie Poysungnoen) from the Department of Biological Sciences and Department of Financial Economics
+2. change "Run Pipeline" to "Search Engine" in which not search on the datasets in the database we have (you can remove that dataset entirely), but instead perform realtime search across open-sources databases. The user can choose 1) 
+which database to scrape from, 2) search terms / or even summary in text of what they need (like when you put things in LLM model), 3) The thresholding weight for each metrics in the confidence score in which composes of "reliability of journal that the paper published (impact factor)", "LH timepoint data availibiliy", "Information about where tissue is being collected",
+as well as relatability to the topic search and other metrics you see appropriate. Here, the user can choose any topic they want to pursue. (only choose dataset that came from paper that has fully paper avaibile for AI to redundant)
+3. The search results should show in real time after the search is done. The results should have 1) Assession ID from each database, 2) Title, 3) Gemini Summary of Abstract / Methods / Dataset Availability 4) Datatype Availability (scRNA-seq, bulk RNA-seq, spatial proteomics, spatial transcriptomic, 5) Tissue it came from, 6) Dataset summary from AI (includiding Which Machine the datacame from), and Confidence Score
+4. For each dataset pass through scraping, the user should be able to select "approved" or "rejected". If "approved", the dataset of that paper will be automatically ready for inspection and download and if multiple paper are approved at the same time, they can all be groupped download
+
+Finally, improve this as appropriate, this will be the wordclass website and the largest hub for science. 

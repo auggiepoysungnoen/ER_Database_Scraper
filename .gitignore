@@ -32,3 +32,5 @@ Thumbs.db
 script/**/__pycache__/
 **/__pycache__/
 *.pyc
+output/.cache/
+script/app/.streamlit/secrets.toml
