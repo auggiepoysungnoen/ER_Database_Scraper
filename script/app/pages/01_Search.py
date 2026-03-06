@@ -23,8 +23,6 @@ _OUTPUT_DIR = _REPO_ROOT / "output"
 sys.path.insert(0, str(_APP_DIR))
 sys.path.insert(0, str(_SCRIPT_DIR))
 
-from auth import check_password  # noqa: E402
-
 # ---------------------------------------------------------------------------
 # Page config
 # ---------------------------------------------------------------------------
@@ -48,9 +46,6 @@ st.markdown(
     """,
     unsafe_allow_html=True,
 )
-
-if not check_password():
-    st.stop()
 
 # ---------------------------------------------------------------------------
 # Sidebar
